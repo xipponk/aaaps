@@ -17,7 +17,6 @@ from config.params import (
     N_SLOTS_BASE,
     W_SCORE_MIN,
     W_SCORE_MAX,
-    ALPHA,
     PHASE2_THRESHOLD,
     PHASE3_THRESHOLD,
     EFFORT_REDUCTION_FACTOR,
@@ -34,7 +33,6 @@ from config.params import (
     PANIC_URGENCY_THRESHOLD,
     PANIC_SR_THRESHOLD,
     DRAIN_RATE,
-    PROCESSING_DIFFICULTY_FACTOR,
     SCORE_CAP,
     TIER_BUDGET_FRACTION,
 )
@@ -248,9 +246,12 @@ class StudentAgent(mesa.Agent):
         if not task.ai_allowed:
             return 0
 
-        # Maximum the agent is willing to spend on AI this month
+        # Maximum the agent is willing to spend on AI this month.
+        # ``tbf_scale`` from the model allows sensitivity-analysis sweeps
+        # over willingness-to-pay without editing config/params.py.
         max_willing = (
             TIER_BUDGET_FRACTION[self.SES]
+            * self.model.tbf_scale
             * self.monthly_budget
             * self.w_score
         )
@@ -315,7 +316,7 @@ class StudentAgent(mesa.Agent):
                 + AI_SPEED_BOOST[tier] * int(task.ai_allowed)
             )
             processing_time = (
-                task.difficulty * PROCESSING_DIFFICULTY_FACTOR
+                task.difficulty * self.model.proc_factor
             ) / effective_intelligence
 
             progress_delta = 1.0 / processing_time
@@ -422,7 +423,7 @@ class StudentAgent(mesa.Agent):
         so that days without AI usage produce no growth.
         """
         if self.ai_tier > 0 and self._ai_used_today:
-            delta = ALPHA * self.ai_tier * (1.0 - self.ai_dependency)
+            delta = self.model.alpha * self.ai_tier * (1.0 - self.ai_dependency)
             self.ai_dependency += delta
 
         # Clamp to valid range

@@ -28,6 +28,8 @@ from config.params import (
     TOTAL_STEPS,
     DIFFICULTY_MULTIPLIER_BASE,
     DIFFICULTY_MULTIPLIER_INCREMENT,
+    ALPHA,
+    PROCESSING_DIFFICULTY_FACTOR,
 )
 from model.agents import StudentAgent
 from model.tasks import TaskObject
@@ -90,11 +92,29 @@ class AaapsModel(mesa.Model):
         n_students: int = N_STUDENTS,
         scenario: str = "free_market",
         seed: int | None = None,
+        alpha_override: float | None = None,
+        proc_factor_override: float | None = None,
+        tbf_scale_override: float | None = None,
     ) -> None:
         super().__init__(seed=seed)
 
         # ---- Numpy RNG (seeded from model seed for Poisson draws) ----
         self._np_random = np.random.RandomState(seed)
+
+        # ---- Sensitivity parameter overrides ----
+        # Agents read these from ``self.model`` so overrides propagate
+        # without touching config/params.py.
+        self.alpha = (
+            alpha_override if alpha_override is not None else ALPHA
+        )
+        self.proc_factor = (
+            proc_factor_override
+            if proc_factor_override is not None
+            else PROCESSING_DIFFICULTY_FACTOR
+        )
+        self.tbf_scale = (
+            tbf_scale_override if tbf_scale_override is not None else 1.0
+        )
 
         # ---- Scenario & counters ----
         self.n_students = n_students
