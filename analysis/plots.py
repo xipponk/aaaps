@@ -387,46 +387,44 @@ def fig3_tornado_chart(df: pd.DataFrame) -> str | None:
 
 
 def fig4_miss_by_quartile(df: pd.DataFrame) -> str | None:
-    """Deadline misses by ability quartile × scenario (agent-level data).
+    """Deadline misses by ability quartile for the *free_market* scenario.
 
-    **Requires agent-level DataCollector CSV(s)** — the sensitivity
-    results DataFrame has only aggregate model-level metrics.
+    Loads ``outputs/raw/agent_data_free_market_seed42.csv``, takes each
+    agent's **final** state (Step 960 → 60 rows), bins agents into
+    ability quartiles (Q1 = lowest, Q4 = highest), and produces a 2×2
+    grid of bar charts — one bar per quartile.
 
-    Loads ``outputs/raw/agent_data_*.csv`` (seed=42 calibrated run).
-    If unavailable, prints a placeholder message and returns ``None``.
-
-    When data IS available, produces a 2×2 grid of bar charts, one
-    per ability quartile (Q1 = lowest, Q4 = highest).
+    Expected pattern: Q1 should show dramatically higher miss count than
+    Q2–Q4 (emergent finding from the AAAPS model).
 
     Saves to ``outputs/figures/fig4_miss_by_quartile.png``.
     """
-    # ---- Try to locate agent-level data ----
     raw_dir = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "outputs", "raw"
     )
-    import glob as _glob
-    agent_files = _glob.glob(os.path.join(raw_dir, "agent_data_*.csv"))
+    agent_path = os.path.join(raw_dir, "agent_data_free_market_seed42.csv")
 
-    if not agent_files:
+    if not os.path.exists(agent_path):
         print(
-            "[plots.py] ⚠️  fig4 requires agent-level data. "
-            "Run a single scenario first, e.g.:\n"
-            "   python run_batch.py single --scenario free_market --seed 42\n"
-            "and save per-step agent data to outputs/raw/agent_data_*.csv"
+            "[plots.py] ⚠️  fig4 requires agent-level data.\n"
+            "   Run: python -c \"from scenarios.free_market import run; "
+            "run(seed=42, save_agents=True)\""
         )
         return None
 
-    # Load and concatenate all agent files
-    agent_dfs = [pd.read_csv(f) for f in agent_files]
-    agent_df = pd.concat(agent_dfs, ignore_index=True)
+    agent_full = pd.read_csv(agent_path)
 
-    # Resolve required columns
+    # ---- Final state only (one row per agent) ----
+    agent_df = agent_full[agent_full["Step"] == agent_full["Step"].max()].copy()
+    n_agents = len(agent_df)
+
+    # ---- Resolve columns ----
     miss_col = None
-    abil_col = None
     for c in ["deadline_miss_count", "miss_count"]:
         if c in agent_df.columns:
             miss_col = c
             break
+    abil_col = None
     for c in ["base_ability", "ability"]:
         if c in agent_df.columns:
             abil_col = c
@@ -438,51 +436,91 @@ def fig4_miss_by_quartile(df: pd.DataFrame) -> str | None:
         )
         return None
 
-    # Assign ability quartile (Q1=lowest, Q4=highest)
+    # ---- Assign ability quartile (Q1=lowest, Q4=highest) ----
     agent_df["ability_quartile"] = pd.qcut(
         agent_df[abil_col], q=4, labels=["Q1", "Q2", "Q3", "Q4"]
     )
 
-    quartiles = ["Q1", "Q2", "Q3", "Q4"]
+    # ---- Compute per-quartile stats ----
+    quartile_stats = (
+        agent_df.groupby("ability_quartile")[miss_col]
+        .agg(["mean", "std", "count"])
+        .reindex(["Q1", "Q2", "Q3", "Q4"])
+    )
+
+    # ---- Sanity check: Q1 should dominate ----
+    means = quartile_stats["mean"]
+    if means.iloc[0] < means.iloc[-1]:
+        print(
+            "[plots.py] ⚠️  WARNING: Q1 mean deadline misses "
+            f"({means.iloc[0]:.1f}) is LOWER than Q4 ({means.iloc[-1]:.1f}). "
+            "This contradicts the expected emergent pattern. "
+            "Check simulation logic."
+        )
+
+    # ---- Plot ----
+    color = SCENARIO_COLORS["free_market"]
+    quartile_titles = {
+        "Q1": "Q1 — Lowest Ability",
+        "Q2": "Q2",
+        "Q3": "Q3",
+        "Q4": "Q4 — Highest Ability",
+    }
+
     fig, axes = plt.subplots(2, 2, figsize=FIG_SIZE_MULTI, sharey=True)
     axes_flat = axes.flatten()
 
-    for idx, quartile in enumerate(quartiles):
+    for idx, (quartile, row) in enumerate(quartile_stats.iterrows()):
         ax = axes_flat[idx]
-        q_data = agent_df[agent_df["ability_quartile"] == quartile]
+        mean_val = row["mean"]
+        std_val = row["std"] if pd.notna(row["std"]) else 0.0
+        n_agents_q = int(row["count"])
 
-        # Aggregate mean miss count per scenario
-        agg = (
-            q_data.groupby("scenario")[miss_col]
-            .mean()
-            .reindex(SCENARIO_ORDER, fill_value=0)
-        )
-
-        colors = [SCENARIO_COLORS.get(s, (0.5, 0.5, 0.5)) for s in SCENARIO_ORDER]
+        # Single bar per quartile
         ax.bar(
-            range(len(agg)),
-            agg.values,
-            color=colors,
+            0, mean_val,
+            yerr=std_val,
+            color=color,
             edgecolor="white",
-            width=0.6,
+            width=0.5,
+            capsize=6,
         )
-        ax.set_xticks(range(len(agg)))
-        ax.set_xticklabels(
-            SCENARIO_ORDER,
-            rotation=15,
-            ha="right",
+
+        # Annotate with mean value
+        y_max = ax.get_ylim()[1] if ax.get_ylim()[1] > 0 else mean_val * 1.5
+        ax.text(
+            0, mean_val + std_val + y_max * 0.03,
+            f"{mean_val:.1f}",
+            ha="center",
+            fontsize=10,
+            fontweight="bold",
+        )
+
+        ax.set_title(quartile_titles[quartile])
+        ax.set_xticks([])
+        ax.set_xlim(-0.6, 0.6)
+
+        # Subtitle: n=XX
+        ax.text(
+            0.5, -0.12,
+            f"n={n_agents_q}",
+            transform=ax.transAxes,
+            ha="center",
             fontsize=8,
+            fontstyle="italic",
+            color="gray",
         )
-        ax.set_title(f"{quartile} (Lowest Ability)" if quartile == "Q1" else quartile)
-        ax.set_ylabel("Mean Deadline Miss Count" if idx % 2 == 0 else "")
-        ax.set_ylim(bottom=0)
+
+    # Set shared y-label on the left column
+    for idx in [0, 2]:
+        axes_flat[idx].set_ylabel("Mean Deadline Misses (cumulative)")
 
     fig.suptitle(
         "Deadline Misses Concentrated in Lowest-Ability Quartile (Q1)",
         fontsize=14,
         fontweight="bold",
     )
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     return _save_and_close(fig, "fig4_miss_by_quartile.png")
 
 
