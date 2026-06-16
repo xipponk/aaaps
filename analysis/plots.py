@@ -151,13 +151,14 @@ def fig1_score_distribution(df: pd.DataFrame) -> str | None:
         print("[plots.py] fig1: no calibrated data — skipping")
         return None
 
-    # Ensure mean_score column is resolved
-    mscore_col = None
-    for candidate in ["mean_score", "score_mean"]:
-        if candidate in data.columns:
-            mscore_col = candidate
-            break
-    if mscore_col is None:
+    # Debug: verify data shape and contents
+    print(f"[plots.py] fig1: calibrated rows = {len(data)}")
+    print(f"[plots.py] fig1: scenarios = {data['scenario'].unique()}")
+    print(f"[plots.py] fig1: mean_score describe:\n{data['mean_score'].describe()}")
+
+    # Resolve mean_score column
+    mscore_col = "mean_score"
+    if mscore_col not in data.columns:
         print("[plots.py] fig1: no mean_score column — skipping")
         return None
 
@@ -174,6 +175,7 @@ def fig1_score_distribution(df: pd.DataFrame) -> str | None:
         inner=None,
         linewidth=1.0,
         cut=0,
+        dodge=False,
         legend=False,
         ax=ax,
     )
@@ -187,9 +189,14 @@ def fig1_score_distribution(df: pd.DataFrame) -> str | None:
         color=".25",
         jitter=True,
         alpha=0.4,
-        size=4,
+        size=3,
         ax=ax,
     )
+
+    # Set y-axis limits before annotation (so get_ylim returns useful values)
+    y_min = data[mscore_col].min() * 0.95
+    y_max = data[mscore_col].max() * 1.05
+    ax.set_ylim(y_min, y_max)
 
     # Annotate median inside each violin
     for i, scenario in enumerate(SCENARIO_ORDER):
@@ -200,7 +207,7 @@ def fig1_score_distribution(df: pd.DataFrame) -> str | None:
         ax.annotate(
             f"{median_val:.1f}",
             xy=(i, median_val),
-            xytext=(i, ax.get_ylim()[1] * 0.95),
+            xytext=(i, y_max * 0.97),
             fontsize=8,
             fontweight="bold",
             ha="center",
@@ -208,7 +215,6 @@ def fig1_score_distribution(df: pd.DataFrame) -> str | None:
             bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7),
         )
 
-    ax.set_title("Score Distribution Across Policy Scenarios (N=60 students, 30 seeds)")
     ax.set_xlabel("Scenario")
     ax.set_ylabel("Mean Score (end of year 4)")
     ax.set_xticks(range(len(SCENARIO_ORDER)))
@@ -219,7 +225,6 @@ def fig1_score_distribution(df: pd.DataFrame) -> str | None:
     )
 
     sns.despine(left=False, bottom=False)
-    # constrained_layout=True already handles spacing
     return _save_and_close(fig, "fig1_score_distribution.png")
 
 
@@ -254,7 +259,7 @@ def fig2_dependency_growth(df: pd.DataFrame) -> str | None:
         return None
 
     dep_col = None
-    for candidate in ["ai_dependency", "dependency"]:
+    for candidate in ["mean_dependency", "ai_dependency", "dependency"]:
         if candidate in data.columns:
             dep_col = candidate
             break
@@ -264,33 +269,56 @@ def fig2_dependency_growth(df: pd.DataFrame) -> str | None:
 
     semesters = np.arange(1, 9)
 
+    # Group by scenario: compute mean and std across seeds
+    scenario_stats = data.groupby("scenario")[dep_col].agg(["mean", "std", "count"])
+    print(f"[plots.py] fig2: dep_final per scenario:")
+    for sc, row in scenario_stats.iterrows():
+        print(f"  {sc}: mean={row['mean']:.4f}, std={row['std']:.4f}, n={int(row['count'])}")
+
     fig, ax = plt.subplots(figsize=FIG_SIZE_SINGLE)
 
     for scenario in SCENARIO_ORDER:
-        subset = data[data["scenario"] == scenario][dep_col]
-        if len(subset) == 0:
+        if scenario not in scenario_stats.index:
             continue
 
-        mean_dep = subset.mean()
-        std_dep = subset.std(ddof=1) if len(subset) > 1 else 0.0
+        mean_dep = scenario_stats.loc[scenario, "mean"]
+        std_dep = scenario_stats.loc[scenario, "std"]
+        if pd.isna(std_dep):
+            std_dep = 0.0
 
-        # Geometric interpolation per semester
-        # dep(s) = 1 - (1 - dep_8)^(s/8)
-        # Clamp to avoid log of zero/negative
-        base = max(1.0 - mean_dep, 1e-9)
-        dep_curve = 1.0 - base ** (semesters / 8.0)
+        # Linear interpolation from 0 at sem 1 to dep_final at sem 8:
+        #   dep_s = dep_final * ((s - 1) / 7)
+        # (all agents start with ai_dependency = 0.0 at step 0)
+        dep_curve = mean_dep * ((semesters - 1) / 7.0)
 
-        # 95% CI: propagate end-of-run ± 1.96 * std through the formula
-        base_lo = max(1.0 - (mean_dep + 1.96 * std_dep), 1e-9)
-        base_hi = max(1.0 - (mean_dep - 1.96 * std_dep), 1e-9)
-        ci_lo = 1.0 - base_lo ** (semesters / 8.0)
-        ci_hi = 1.0 - base_hi ** (semesters / 8.0)
+        # 95% CI: propagate linearly with same (s-1)/7 scaling
+        ci_lo = (mean_dep - 1.96 * std_dep) * ((semesters - 1) / 7.0)
+        ci_hi = (mean_dep + 1.96 * std_dep) * ((semesters - 1) / 7.0)
+        ci_lo = np.clip(ci_lo, 0.0, 1.0)
+        ci_hi = np.clip(ci_hi, 0.0, 1.0)
 
+        is_baseline = (scenario == "baseline")
         color = SCENARIO_COLORS.get(scenario, (0.5, 0.5, 0.5))
         label = scenario.replace("_", " ").title()
 
-        ax.plot(semesters, dep_curve, color=color, linewidth=2, label=label, marker="o")
+        ax.plot(
+            semesters, dep_curve,
+            color=color, linewidth=2, label=label, marker="o",
+            zorder=5 if is_baseline else 2,
+        )
         ax.fill_between(semesters, ci_lo, ci_hi, color=color, alpha=0.15)
+
+        # Baseline sits on x-axis — add annotation so it's visible
+        if is_baseline:
+            ax.annotate(
+                "Baseline ≈ 0",
+                xy=(4, 0.0),
+                xytext=(4.5, 0.06),
+                fontsize=8,
+                fontstyle="italic",
+                color=color,
+                arrowprops=dict(arrowstyle="->", color=color, lw=0.8),
+            )
 
     # Phase threshold lines
     ax.axhline(y=0.4, color="gray", linestyle="--", linewidth=1.0, alpha=0.7)
@@ -316,7 +344,6 @@ def fig2_dependency_growth(df: pd.DataFrame) -> str | None:
         arrowprops=dict(arrowstyle="->", color="gray", lw=0.8),
     )
 
-    ax.set_title("AI Dependency Growth by Scenario (geometric approximation)")
     ax.set_xlabel("Semester")
     ax.set_ylabel("AI Dependency")
     ax.set_xlim(0.5, 8.5)
@@ -363,15 +390,15 @@ def fig3_tornado_chart(df: pd.DataFrame) -> str | None:
     ax.set_yticks(list(y_positions))
     ax.set_yticklabels(labels)
     ax.axvline(x=0, color="black", linewidth=0.8, linestyle="-")
-    ax.set_xlabel("Range of deadline_miss_rate (max − min across parameter values)")
-    ax.set_title("Parameter Sensitivity — Deadline Miss Rate")
+    ax.set_xlabel("Range of Deadline Miss Rate (%)")
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.1%}'))
 
     # Add value labels at tip of each bar
     for y, (_, row) in zip(y_positions, rank_df.iterrows()):
         ax.text(
             row["range"] + ax.get_xlim()[1] * 0.005,
             y,
-            f"{row['range']:.4f}",
+            f"{row['range']:.2%}",
             va="center",
             fontsize=8,
         )
@@ -515,12 +542,7 @@ def fig4_miss_by_quartile(df: pd.DataFrame) -> str | None:
     for idx in [0, 2]:
         axes_flat[idx].set_ylabel("Mean Deadline Misses (cumulative)")
 
-    fig.suptitle(
-        "Deadline Misses Concentrated in Lowest-Ability Quartile (Q1)",
-        fontsize=14,
-        fontweight="bold",
-    )
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.tight_layout()
     return _save_and_close(fig, "fig4_miss_by_quartile.png")
 
 
@@ -622,7 +644,7 @@ if __name__ == "__main__":
                 "mean_score": base_score + np.random.uniform(-3, 3),
                 "gini": base_gini + np.random.uniform(-0.01, 0.01),
                 "deadline_miss_rate": base_miss + np.random.uniform(-0.01, 0.01),
-                "ai_dependency": base_dep + np.random.uniform(-0.05, 0.05),
+                "mean_dependency": base_dep + np.random.uniform(-0.05, 0.05),
                 "ai_adoption_rate": base_adopt + np.random.uniform(-0.05, 0.05),
             })
 

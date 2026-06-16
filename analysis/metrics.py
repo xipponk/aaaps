@@ -300,7 +300,10 @@ def sensitivity_rank(
         if subset.empty:
             continue
 
-        vals = subset["metric_mean"]
+        # Average across scenarios to isolate this parameter's effect,
+        # then compute range across parameter values
+        param_means = subset.groupby(param)["metric_mean"].mean()
+        vals = param_means
         param_range = float(vals.max() - vals.min())
         results.append(
             {
@@ -310,6 +313,28 @@ def sensitivity_rank(
                 "max_val": float(vals.max()),
             }
         )
+
+    # --- Debug: show pivot of mean metric per parameter value ---
+    print(f"\n[DEBUG sensitivity_rank] metric={metric}")
+    pivot_rows: list[dict[str, object]] = []
+    for param in params_to_test:
+        other_params = [p for p in params_to_test if p != param]
+        mask = pd.Series(True, index=combo_means.index)
+        for other in other_params:
+            if other in combo_means.columns:
+                mask &= np.isclose(
+                    combo_means[other].astype(float),
+                    float(BASELINE_PARAMS[other]),
+                )
+        subset = combo_means[mask]
+        if subset.empty:
+            continue
+        param_means = subset.groupby(param)["metric_mean"].mean()
+        for val, m in param_means.items():
+            pivot_rows.append({"parameter": param, "value": val, "metric_mean": m})
+    pivot_df = pd.DataFrame(pivot_rows)
+    print(pivot_df.to_string(index=False))
+    print()
 
     result_df = pd.DataFrame(results)
     if result_df.empty:
