@@ -31,12 +31,12 @@ BASELINE_PARAMS: dict[str, float] = {
 # Column name mapping — the CSV may use slightly different names.
 # This dict maps our canonical names to likely CSV column names.
 _COL_ALIASES: dict[str, list[str]] = {
-    "mean_score": ["mean_score", "score_mean"],
-    "gini": ["gini", "gini_score"],
-    "deadline_miss_rate": ["deadline_miss_rate", "miss_rate"],
-    "ai_dependency": ["ai_dependency", "dependency"],
-    "ai_adoption_rate": ["ai_adoption_rate", "adoption", "adoption_rate"],
-    "n_runs": ["n_runs", "n_seeds", "seed_count"],
+    "mean_score": ["mean_score"],
+    "gini": ["gini"],
+    "deadline_miss_rate": ["deadline_miss_rate"],
+    "ai_dependency": ["mean_dependency"],
+    "ai_adoption_rate": ["ai_adoption_rate"],
+    "n_runs": ["n_runs"],
 }
 
 
@@ -160,7 +160,7 @@ def summary_stats(df: pd.DataFrame) -> pd.DataFrame:
     df : pd.DataFrame
         Must contain at least the group-by columns plus per-run metric
         columns (``mean_score``, ``gini``, ``deadline_miss_rate``,
-        ``ai_dependency``, ``ai_adoption_rate``, and a ``seed`` column).
+        ``mean_dependency``, ``ai_adoption_rate``, and a ``seed`` column).
 
     Returns
     -------
