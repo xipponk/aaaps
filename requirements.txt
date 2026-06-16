@@ -1,0 +1,12 @@
+mesa==2.3.0
+numpy
+pandas
+matplotlib
+seaborn
+scipy
+jupyter
+jupyterlab
+ipykernel
+tqdm
+joblib
+pyarrow

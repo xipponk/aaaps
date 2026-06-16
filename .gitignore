@@ -1,0 +1,26 @@
+# Python virtual environment
+.venv/
+
+# Generated outputs (CSV, figures, etc.)
+outputs/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# Package build artifacts
+*.egg-info/
+dist/
+
+# pytest cache
+.pytest_cache/
+
+# Jupyter notebook checkpoints
+notebooks/.ipynb_checkpoints/
