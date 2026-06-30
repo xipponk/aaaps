@@ -1,0 +1,6 @@
+scenario,gini,mean_score,mean_deadline_misses,low_SES_mean_tier,mid_SES_mean_tier,high_SES_mean_tier,pct_low_SES_tier2plus,pct_high_SES_tier3
+baseline,0.1484,35820.3,6.17,0.0,0.0,0.0,0.0,0.0
+free_market,0.1538,37175.7,7.72,0.72,0.87,2.42,0.0,58.3
+universal_ai,0.1538,37178.7,7.72,0.72,0.87,2.42,0.0,58.3
+subsidy,0.1538,37175.7,7.73,2.0,0.87,2.42,100.0,58.3
+mixed_policy,0.1554,36262.7,10.03,0.61,0.77,1.75,0.0,41.7
