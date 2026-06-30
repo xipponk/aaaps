@@ -24,3 +24,4 @@ dist/
 
 # Jupyter notebook checkpoints
 notebooks/.ipynb_checkpoints/
+CLAUDE.md
