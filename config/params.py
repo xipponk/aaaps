@@ -1,173 +1,164 @@
 """
-config/params.py — ALL simulation parameters in one place.
+config/params.py — ALL simulation parameters in one place (v0.3 Networked Redesign).
 
 Never hardcode parameter values in agents.py or model.py.
 Import from here instead.
 
-Follows CLAUDE.md sections:
-  - Initialization Parameters
-  - Core Formulas
-  - Course Personalities
-  - Dependency Phase Effects
-  - Quota System
-  - AI Tier Upgrade
-  - Self-Regulation & Life Task Decision
-  - Data Collection
+Calibration Tags:
+  # [K] Known / empirical literature anchor
+  # [C] Calibrated to match domain baseline
+  # [F] Fixed / exploratory simulation assumption (to be sensitivity-tested in GSA)
 """
 
 from typing import Final
 
 # =============================================================================
-# Population
+# Population & Sections
 # =============================================================================
 
-N_STUDENTS: Final[int] = 60
+N_STUDENTS: Final[int] = 240              # [K] 6 sections x 40 students
+N_SECTIONS: Final[int] = 6                # [K] CS curriculum sections
+STUDENTS_PER_SECTION: Final[int] = 40     # [K] 40 per section
 
 SES_RATIO: Final[dict[str, float]] = {
-    'low': 0.30,
-    'mid': 0.50,
-    'high': 0.20,
+    'low': 0.30,   # [K] SIT KMUTT demographic baseline
+    'mid': 0.50,   # [K]
+    'high': 0.20,  # [K]
 }
+
+# =============================================================================
+# Social Network Topology
+# =============================================================================
+
+SBM_P_WITHIN: Final[float] = 0.18         # [C] Intra-section connection probability
+SBM_P_BETWEEN: Final[float] = 0.015       # [C] Inter-section connection probability
+HOMOPHILY_SES: Final[float] = 0.20        # [K] Low-moderate excess same-SES tie prob per literature
+HOMOPHILY_ABILITY: Final[float] = 0.25    # [K] Academic ability homophily
+TARGET_K_BAR_RANGE: Final[tuple[float, float]] = (6.0, 10.0)  # [K] Target average degree 6-10
+TIE_STRENGTH_BETA_A: Final[float] = 2.0   # [K] Beta(2,2) edge tie strength shape a
+TIE_STRENGTH_BETA_B: Final[float] = 2.0   # [K] Beta(2,2) edge tie strength shape b
+P_VISIBLE: Final[float] = 0.70            # [K] Noisy observation probability of neighbour AI use
 
 # =============================================================================
 # Ability Distribution
 # =============================================================================
 
-ABILITY_MEAN: Final[float] = 50.0
-ABILITY_STD: Final[float] = 15.0
-ABILITY_CLAMP: Final[tuple[float, float]] = (10.0, 100.0)
+ABILITY_MEAN: Final[float] = 50.0          # [C]
+ABILITY_STD: Final[float] = 15.0           # [C]
+ABILITY_CLAMP: Final[tuple[float, float]] = (10.0, 100.0)  # [F]
 
 # =============================================================================
-# Self-Regulation
+# Self-Regulation & Traits
 # =============================================================================
 
-SR_ABILITY_WEIGHT: Final[float] = 0.45
-SR_NOISE_WEIGHT: Final[float] = 0.55
+SR_ABILITY_WEIGHT: Final[float] = 0.45     # [K] Correlation with ability
+SR_NOISE_WEIGHT: Final[float] = 0.55       # [K]
+CONFORMITY_BETA_A: Final[float] = 2.0      # [F] Trait distribution for norm conformity ~ Beta(2,5)
+CONFORMITY_BETA_B: Final[float] = 5.0      # [F]
+PROSOCIALITY_BETA_A: Final[float] = 2.0   # [F] Trait distribution for prosociality ~ Beta(3,3)
+PROSOCIALITY_BETA_B: Final[float] = 2.0   # [F]
 
 # =============================================================================
-# W-Score (willingness to invest in academics, inverse of hobby_pull)
+# W-Score (willingness to invest in academics)
 # =============================================================================
 
-W_SCORE_MIN: Final[float] = 0.2
-W_SCORE_MAX: Final[float] = 0.95
+W_SCORE_MIN: Final[float] = 0.2            # [F]
+W_SCORE_MAX: Final[float] = 0.95           # [F]
 
 # =============================================================================
 # N Slots (concurrent task capacity)
 # =============================================================================
 
-N_SLOTS_DIVISOR: Final[float] = 20.0
-N_SLOTS_BASE: Final[int] = 2
+N_SLOTS_DIVISOR: Final[float] = 20.0       # [F]
+N_SLOTS_BASE: Final[int] = 2               # [F]
 
 # =============================================================================
-# Budget (THB/month)
+# Budget (THB/month, Bangkok scaled)
 # =============================================================================
 
 BUDGET_PARAMS: Final[dict[str, dict[str, float]]] = {
-    'low':  {'mean': 3000.0,  'std': 500.0},
-    'mid':  {'mean': 8000.0,  'std': 1500.0},
-    'high': {'mean': 20000.0, 'std': 3000.0},
+    'low':  {'mean': 4000.0,  'std': 700.0},    # [K] Re-anchored Bangkok-scaled
+    'mid':  {'mean': 11000.0, 'std': 2000.0},   # [K]
+    'high': {'mean': 27000.0, 'std': 4000.0},   # [K]
 }
 
 # =============================================================================
-# AI Pricing & Quota
+# AI Pricing, Quota & Access Sharing
 # =============================================================================
 
 AI_MONTHLY_COST: Final[dict[int, int]] = {
-    0: 0,       # no AI
-    1: 0,       # free tier
-    2: 600,     # mid tier (THB/month)
-    3: 1800,    # premium tier (THB/month)
+    0: 0,       # [K] no AI
+    1: 0,       # [K] free tier
+    2: 600,     # [K] mid tier (THB/month)
+    3: 1800,    # [K] premium tier (THB/month)
 }
 
 AI_MONTHLY_QUOTA: Final[dict[int, int]] = {
-    0: 0,
-    1: 100,
-    2: 300,
-    3: 800,
+    0: 0,       # [K]
+    1: 100,     # [K]
+    2: 300,     # [K]
+    3: 800,     # [K]
+}
+
+SHAREABLE_SEATS: Final[dict[int, int]] = {
+    0: 0,       # [K] ODD §5.4
+    1: 0,       # [K]
+    2: 1,       # [K] Mid tier shares 1 seat
+    3: 2,       # [K] Premium tier shares 2 seats
 }
 
 # =============================================================================
-# AI Speed Boost (added to effective_ability when ai_allowed is True)
+# AI Speed & Quality Boosts
 # =============================================================================
 
 AI_SPEED_BOOST: Final[dict[int, int]] = {
-    0: 0,
-    1: 5,
-    2: 15,
-    3: 35,
+    0: 0,       # [C]
+    1: 5,       # [C]
+    2: 15,      # [C]
+    3: 35,      # [C]
 }
-
-# =============================================================================
-# AI Quality Boost (multiplier on score)
-# =============================================================================
 
 AI_QUALITY_BOOST: Final[dict[int, float]] = {
-    0: 0.0,
-    1: 0.05,
-    2: 0.20,
-    3: 0.50,
+    0: 0.0,     # [K] Anchored to Hedges g=0.533
+    1: 0.05,    # [K]
+    2: 0.20,    # [K]
+    3: 0.50,    # [K]
 }
 
 # =============================================================================
-# Processing Time Formula
+# Coupled Dynamics Parameters (ODD §7.4 / §10 #5)
 # =============================================================================
 
-PROCESSING_DIFFICULTY_FACTOR: Final[float] = 30.0
+ALPHA_D: Final[float] = 0.012             # [C] Dependency growth rate when using AI
+DELTA_D: Final[float] = 0.005             # [C] Dependency decay rate when not using AI
+BETA_C: Final[float] = 0.010              # [C] Calibration error growth rate with dependency
+GAMMA_C: Final[float] = 0.050             # [C] Calibration error recovery rate with surprise
+RHO_AS: Final[float] = 0.30               # [K] Practice recovery rate (~0.30 per ODD §6)
+LAMBDA_A: Final[float] = 0.008            # [C] Ability erosion rate per AI usage under dependency
 
 # =============================================================================
-# Score Formula
+# Interaction Parameters (ODD §7.7-7.9)
 # =============================================================================
 
-SCORE_CAP: Final[float] = 100.0
+ETA: Final[float] = 0.08                  # [F] Norm diffusion rate
+ETA_SELF: Final[float] = 0.03             # [F] Self-use legitimacy reinforcement
+KAPPA: Final[float] = 0.10                # [F] Aspiration adjustment rate
 
 # =============================================================================
-# AI Dependency (Logistic Growth)
+# Processing & Score Formulas
 # =============================================================================
 
-ALPHA: Final[float] = 0.008  # growth rate per day (slower dependency accumulation)
+PROCESSING_DIFFICULTY_FACTOR: Final[float] = 30.0  # [C]
+SCORE_CAP: Final[float] = 100.0                   # [K]
 
 # =============================================================================
-# Tier Budget Fraction (willingness-to-pay by SES)
+# Tier Budget Fraction
 # =============================================================================
 
 TIER_BUDGET_FRACTION: Final[dict[str, float]] = {
-    'low':  0.05,
-    'mid':  0.10,
-    'high': 0.15,
-}
-
-# =============================================================================
-# Dependency Phase Thresholds
-# =============================================================================
-
-PHASE2_THRESHOLD: Final[float] = 0.4   # ai_dependency >= 0.4 → Phase 2
-PHASE3_THRESHOLD: Final[float] = 0.7   # ai_dependency >= 0.7 → Phase 3
-
-# Phase 1 (dependency < 0.4): Effort Reduction
-EFFORT_REDUCTION_FACTOR: Final[float] = 0.3
-
-# Phase 2 (0.4 <= dependency < 0.7): Miscalibration
-MISCALIBRATION_FACTOR: Final[float] = 0.4
-
-# Phase 3 (dependency >= 0.7): Capability Erosion
-EROSION_FACTOR: Final[float] = 0.5
-
-# =============================================================================
-# Self-Regulation & Life Task Decision
-# =============================================================================
-
-PERCEIVED_SAFETY_FACTOR: Final[float] = 0.3
-PANIC_URGENCY_THRESHOLD: Final[float] = 0.85
-PANIC_SR_THRESHOLD: Final[float] = 0.6
-
-# =============================================================================
-# AI Tier Upgrade Decision
-# =============================================================================
-
-BUDGET_SENSITIVITY: Final[dict[str, float]] = {
-    'low': 0.5,
-    'mid': 1.0,
-    'high': 2.0,
+    'low':  0.05,  # [C]
+    'mid':  0.10,  # [C]
+    'high': 0.15,  # [C]
 }
 
 # =============================================================================
@@ -175,38 +166,34 @@ BUDGET_SENSITIVITY: Final[dict[str, float]] = {
 # =============================================================================
 
 DRAIN_RATE: Final[dict[int, int]] = {
-    0: 0,   # no AI
-    1: 1,   # free tier
-    2: 3,   # mid tier
-    3: 8,   # premium tier
+    0: 0,   # [K] no AI
+    1: 1,   # [K] free tier
+    2: 3,   # [K] mid tier
+    3: 8,   # [K] premium tier
 }
 
 TOPUP_COST: Final[dict[int, int]] = {
-    2: 200,   # THB per 100 units (mid tier)
-    3: 180,   # THB per 100 units (premium tier)
+    2: 200,   # [K] THB per 100 units
+    3: 180,   # [K] THB per 100 units
 }
 
-LOW_THRESHOLD: Final[float] = 50.0    # trigger top-up when quota < this
-TOPUP_AMOUNT: Final[float] = 100.0     # units added per top-up
+LOW_THRESHOLD: Final[float] = 50.0        # [C] trigger top-up when quota < this
+TOPUP_AMOUNT: Final[float] = 100.0        # [C] units added per top-up
 
 # =============================================================================
 # Simulation Duration
 # =============================================================================
 
-STEPS_PER_SEMESTER: Final[int] = 120
-N_SEMESTERS: Final[int] = 8
+STEPS_PER_SEMESTER: Final[int] = 120      # [K] 120 days per semester
+N_SEMESTERS: Final[int] = 8               # [K] 4-year curriculum (8 semesters)
 TOTAL_STEPS: Final[int] = STEPS_PER_SEMESTER * N_SEMESTERS  # 960
 
 # =============================================================================
-# Difficulty Scaling
+# Difficulty Scaling & Course Personalities
 # =============================================================================
 
 DIFFICULTY_MULTIPLIER_BASE: Final[float] = 1.0
 DIFFICULTY_MULTIPLIER_INCREMENT: Final[float] = 0.08
-
-# =============================================================================
-# Course Personalities (5 per semester)
-# =============================================================================
 
 COURSES: Final[list[dict]] = [
     {
@@ -215,7 +202,7 @@ COURSES: Final[list[dict]] = [
         'difficulty_range': (7, 9),
         'ai_allowed': False,
         'assessment': 'exam',
-        'lambda_tasks': 0.5 / 7,      # avg tasks per day
+        'lambda_tasks': 0.5 / 7,
         'deadline_days': 30,
     },
     {
@@ -231,7 +218,7 @@ COURSES: Final[list[dict]] = [
         'id': 'C3',
         'name': 'Lab/Practical',
         'difficulty_range': (4, 6),
-        'ai_allowed': 'random_50pct',   # per-task random: True/False with P=0.5
+        'ai_allowed': 'random_50pct',
         'assessment': 'lab',
         'lambda_tasks': 2.0 / 7,
         'deadline_days': 7,
@@ -255,9 +242,5 @@ COURSES: Final[list[dict]] = [
         'deadline_days': 45,
     },
 ]
-
-# =============================================================================
-# Life Task Generation
-# =============================================================================
 
 LAMBDA_LIFE: Final[float] = 0.3 / 7  # avg life tasks per day
