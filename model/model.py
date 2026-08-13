@@ -1,18 +1,22 @@
 """
-model/model.py — AaapsModel (Mesa 2.x Model subclass).
+model/model.py — AaapsModel (v0.3 Networked Redesign).
 
-The world container for the AAAPS simulation.  Creates 60 StudentAgents,
-generates course and life tasks each step, applies scenario policies, and
-collects data via Mesa's DataCollector.
+World container for AAAPS v0.3. Implements hybrid 2-stage scheduler,
+3 interaction submodels (Normative Diffusion, Aspiration Adjustment, Access Market),
+and data collection.
 """
 
 from __future__ import annotations
 
+import copy
 import mesa
+import networkx as nx
 import numpy as np
 
 from config.params import (
     N_STUDENTS,
+    N_SECTIONS,
+    STUDENTS_PER_SECTION,
     SES_RATIO,
     ABILITY_MEAN,
     ABILITY_STD,
@@ -20,387 +24,268 @@ from config.params import (
     SR_ABILITY_WEIGHT,
     SR_NOISE_WEIGHT,
     BUDGET_PARAMS,
-    AI_MONTHLY_QUOTA,
-    COURSES,
-    LAMBDA_LIFE,
+    CONFORMITY_BETA_A,
+    CONFORMITY_BETA_B,
+    PROSOCIALITY_BETA_A,
+    PROSOCIALITY_BETA_B,
+    P_VISIBLE,
+    ETA,
+    ETA_SELF,
+    KAPPA,
+    SHAREABLE_SEATS,
     STEPS_PER_SEMESTER,
     N_SEMESTERS,
     TOTAL_STEPS,
-    DIFFICULTY_MULTIPLIER_BASE,
-    DIFFICULTY_MULTIPLIER_INCREMENT,
-    ALPHA,
-    PROCESSING_DIFFICULTY_FACTOR,
+    COURSES,
+    LAMBDA_LIFE,
 )
 from model.agents import StudentAgent
+from model.network import generate_social_network
 from model.tasks import TaskObject
-
-# ---------------------------------------------------------------------------
-# Module-level helper — Gini coefficient
-# ---------------------------------------------------------------------------
-
-
-def compute_gini(model: AaapsModel) -> float:
-    """Gini coefficient of score_total across all agents.
-
-    Returns 0.0 when there are no agents or all scores are zero.
-    """
-    scores = sorted([a.score_total for a in model.agents])
-    n = len(scores)
-    total = sum(scores)
-    if n == 0 or total == 0.0:
-        return 0.0
-    cumsum = sum((i + 1) * s for i, s in enumerate(scores))
-    return (2.0 * cumsum) / (n * total) - (n + 1.0) / n
-
-
-# ===========================================================================
-# AaapsModel
-# ===========================================================================
 
 
 class AaapsModel(mesa.Model):
-    """Agent-Based Model of 60 undergraduate CS students over 8 semesters.
-
-    Parameters
-    ----------
-    n_students : int
-        Number of students (typically 60).
-    scenario : str
-        One of 'baseline', 'free_market', 'universal_ai', 'subsidy', or
-        'mixed_policy'.
-    seed : int | None
-        Random seed for reproducibility.
-    """
-
-    # ------------------------------------------------------------------
-    # Public attributes (set by __init__)
-    # ------------------------------------------------------------------
+    """AaapsModel v0.3 — Networked Agent-Based Model of CS students."""
 
     n_students: int
     scenario: str
-    current_semester: int
     current_step: int
-    quota_bankruptcy_count: int
-    total_tasks_generated: int
-
-    # ------------------------------------------------------------------
-    # Initialisation
-    # ------------------------------------------------------------------
+    current_semester: int
+    social_network: nx.Graph
 
     def __init__(
         self,
         n_students: int = N_STUDENTS,
         scenario: str = "free_market",
         seed: int | None = None,
-        alpha_override: float | None = None,
-        proc_factor_override: float | None = None,
-        tbf_scale_override: float | None = None,
+        zero_interaction_mode: bool = False,
     ) -> None:
         super().__init__(seed=seed)
-
-        # ---- Numpy RNG (seeded from model seed for Poisson draws) ----
-        self._np_random = np.random.RandomState(seed)
-
-        # ---- Sensitivity parameter overrides ----
-        # Agents read these from ``self.model`` so overrides propagate
-        # without touching config/params.py.
-        self.alpha = (
-            alpha_override if alpha_override is not None else ALPHA
-        )
-        self.proc_factor = (
-            proc_factor_override
-            if proc_factor_override is not None
-            else PROCESSING_DIFFICULTY_FACTOR
-        )
-        self.tbf_scale = (
-            tbf_scale_override if tbf_scale_override is not None else 1.0
-        )
-
-        # ---- Scenario & counters ----
         self.n_students = n_students
         self.scenario = scenario
-        self.current_semester = 1
         self.current_step = 0
-        self.quota_bankruptcy_count = 0
-        self.total_tasks_generated = 0
-        self._next_task_id = 0
+        self.current_semester = 1
+        self.zero_interaction_mode = zero_interaction_mode
 
-        # ---- Create student population ----
-        self._create_students()
+        # 1. Instantiate 240 Agents across 6 Sections
+        agent_list = []
+        ses_choices = ['low', 'mid', 'high']
+        ses_probs = [SES_RATIO['low'], SES_RATIO['mid'], SES_RATIO['high']]
 
-        # ---- Data collection ----
-        self.datacollector = mesa.DataCollector(
-            agent_reporters={
-                "score_total": lambda a: a.score_total,
-                "ai_dependency": lambda a: a.ai_dependency,
-                "dependency_phase": lambda a: a.dependency_phase,
-                "ai_tier": lambda a: a.ai_tier,
-                "quota_balance": lambda a: a.quota_balance,
-                "effective_ability": lambda a: a.effective_ability,
-                "slots_used": lambda a: len(a.slot_queue),
-                "deadline_miss_count": lambda a: a.deadline_miss_count,
-                "SES": lambda a: a.SES,
-                "base_ability": lambda a: a.base_ability,
-                "semester": lambda a: a.model.current_semester,
-            },
-            model_reporters={
-                "mean_score": lambda m: float(
-                    np.mean([a.score_total for a in m.agents])
-                ),
-                "gini_score": compute_gini,
-                "ai_adoption_rate": lambda m: (
-                    sum(1 for a in m.agents if a.ai_tier > 0) / m.n_students
-                ),
-                "quota_bankruptcies": lambda m: m.quota_bankruptcy_count,
-                "deadline_miss_rate": lambda m: (
-                    sum(a.deadline_miss_count for a in m.agents)
-                    / max(m.total_tasks_generated, 1)
-                ),
-            },
-        )
+        for uid in range(self.n_students):
+            sec_id = uid // STUDENTS_PER_SECTION
+            ses = str(self.random.choices(ses_choices, weights=ses_probs)[0])
+            b_cfg = BUDGET_PARAMS[ses]
+            budget = float(self.random.gauss(b_cfg['mean'], b_cfg['std']))
 
-    # ------------------------------------------------------------------
-    # Student factory
-    # ------------------------------------------------------------------
+            ab_raw = float(self.random.gauss(ABILITY_MEAN, ABILITY_STD))
+            ability = float(np.clip(ab_raw, ABILITY_CLAMP[0], ABILITY_CLAMP[1]))
 
-    def _create_students(self) -> None:
-        """Create ``n_students`` agents with traits drawn from distributions.
+            sr_raw = (ability / 100.0) * SR_ABILITY_WEIGHT + self.random.random() * SR_NOISE_WEIGHT
+            sr = float(np.clip(sr_raw, 0.0, 1.0))
+            hobby = float(self.random.random())
 
-        Uses ``self.random`` (Mesa's seeded RNG) for every random draw.
-        """
-        # ---- SES assignment (stratified: 30 % low, 50 % mid, 20 % high) ----
-        n_low = round(self.n_students * SES_RATIO["low"])
-        n_mid = round(self.n_students * SES_RATIO["mid"])
-        n_high = self.n_students - n_low - n_mid
-        ses_labels = (
-            ["low"] * n_low + ["mid"] * n_mid + ["high"] * n_high
-        )
-        self.random.shuffle(ses_labels)
+            conformity = float(self.random.betavariate(CONFORMITY_BETA_A, CONFORMITY_BETA_B))
+            prosociality = float(self.random.betavariate(PROSOCIALITY_BETA_A, PROSOCIALITY_BETA_B))
 
-        for unique_id, ses in enumerate(ses_labels):
-            # ---- Base ability: Normal(50, 15) clamped to [10, 100] ----
-            base_ability = float(
-                self.random.normalvariate(ABILITY_MEAN, ABILITY_STD)
-            )
-            base_ability = max(ABILITY_CLAMP[0], min(base_ability, ABILITY_CLAMP[1]))
-
-            # ---- Monthly budget: Normal(mean, std) per SES, clamped >= 0 ----
-            bp = BUDGET_PARAMS[ses]
-            monthly_budget = float(self.random.normalvariate(bp["mean"], bp["std"]))
-            monthly_budget = max(monthly_budget, 0.0)
-
-            # ---- Self-regulation: correlated with ability (r ≈ 0.45) ----
-            z_ability = (base_ability - ABILITY_MEAN) / ABILITY_STD
-            z_noise = float(self.random.normalvariate(0.0, 1.0))
-            sr_raw = 0.5 + 0.15 * (
-                SR_ABILITY_WEIGHT * z_ability + SR_NOISE_WEIGHT * z_noise
-            )
-            self_regulation = max(0.0, min(sr_raw, 1.0))
-
-            # ---- Hobby pull: Uniform [0, 1], independent ----
-            hobby_pull = float(self.random.uniform(0.0, 1.0))
-
-            # ---- Create agent (auto-registers with self) ----
-            StudentAgent(
-                unique_id=unique_id,
+            agent = StudentAgent(
+                unique_id=uid,
                 model=self,
-                base_ability=base_ability,
+                base_ability=ability,
                 ses=ses,
-                monthly_budget=monthly_budget,
-                self_regulation=self_regulation,
-                hobby_pull=hobby_pull,
+                section_id=sec_id,
+                monthly_budget=budget,
+                self_regulation=sr,
+                hobby_pull=hobby,
+                conformity=conformity,
+                prosociality=prosociality,
             )
+            agent_list.append(agent)
+            self.agents.add(agent)
 
-        # ---- Apply scenario-level initial overrides ----
-        if self.scenario == "baseline":
-            for agent in self.agents:
-                agent.ai_tier = 0
-                agent.quota_balance = 0.0
+        # 2. Network Construction (or Empty Graph if zero-interaction check)
+        if self.zero_interaction_mode:
+            self.social_network = nx.Graph()
+            for a in agent_list:
+                self.social_network.add_node(a.unique_id)
+        else:
+            np_rng = np.random.default_rng(seed if seed is not None else 42)
+            self.social_network = generate_social_network(agent_list, np_rng)
 
-    # ==================================================================
-    # Step
-    # ==================================================================
+    # =========================================================================
+    # Step Pipeline: Hybrid 2-Stage Scheduler (Phase A -> B -> C -> D -> E)
+    # =========================================================================
 
     def step(self) -> None:
-        """Execute one simulation day (four-phase pipeline).
+        """Execute one daily step of the simulation."""
+        self.current_step += 1
+        self.current_semester = min(N_SEMESTERS, (self.current_step - 1) // STEPS_PER_SEMESTER + 1)
 
-        Phase A — Model-level: decrement deadlines, generate new tasks,
-            apply difficulty scaling, and stage tasks on each agent.
-        Phase B — Agent-level: ``self.agents.shuffle().do("step")``.
-        Phase C — Bookkeeping: advance ``current_step`` and
-            ``current_semester``, apply scenario effects, count
-            bankruptcies.
-        Phase D — Data: ``self.datacollector.collect(self)``.
-        """
-        # ---- Phase A: Task generation & deadline maintenance ----
-        semester_mult = self._semester_difficulty_multiplier()
+        # --- Phase A: Environment Update ---
+        self._phase_a_env_update()
 
-        for agent in self.agents:
-            # Decrement deadlines on all queued tasks
-            for task in agent.slot_queue:
-                task.deadline_remaining -= 1
+        # --- Phase B: Synchronous Social Update (Snapshot of t-1) ---
+        if not self.zero_interaction_mode:
+            self._phase_b_social_update()
 
-            # Generate new tasks for this student
-            incoming = self._generate_tasks(agent, semester_mult)
-            agent._incoming_tasks = incoming  # type: ignore[attr-defined]
-
-        # ---- Phase B: Agent step (random order, Mesa 2.x) ----
+        # --- Phase C: Asynchronous Individual Action ---
         self.agents.shuffle().do("step")
 
-        # ---- Phase C: Bookkeeping ----
-        self.current_step += 1
-        self._steps = self.current_step  # Mesa DataCollector keys on model._steps
-        if self.current_step > 0 and self.current_step % STEPS_PER_SEMESTER == 0:
-            self.current_semester += 1
-
-        # ---- Monthly cycle (every 30 days) ----
-        if self.current_step % 30 == 0:
-            for agent in self.agents:
-                agent.budget_remaining = agent.monthly_budget
-                if agent.ai_tier > 0:
-                    agent.quota_balance += AI_MONTHLY_QUOTA[agent.ai_tier]
-
-        self._apply_scenario_effects()
-
-        # Count quota bankruptcies that occurred this step
+        # --- Phase D: Coupled Continuous State Update ---
         for agent in self.agents:
-            if agent._quota_bankrupted_this_step:  # type: ignore[attr-defined]
-                self.quota_bankruptcy_count += 1
-                agent._quota_bankrupted_this_step = False  # type: ignore[attr-defined]
+            if isinstance(agent, StudentAgent):
+                agent.update_coupled_dynamics()
 
-        # ---- Phase D: Collect data ----
-        self.datacollector.collect(self)
+        # --- Phase E: Data Collection ---
 
-    # ==================================================================
-    # Task generation
-    # ==================================================================
+    # -------------------------------------------------------------------------
+    # Phase A: Environment Update
+    # -------------------------------------------------------------------------
 
-    def _generate_tasks(
-        self,
-        student: StudentAgent,
-        semester_multiplier: float,
-    ) -> list[TaskObject]:
-        """Generate new academic and life tasks for one student.
+    def _phase_a_env_update(self) -> None:
+        """Monthly budget/quota reset & task generation."""
+        # Monthly reset every 30 days
+        if (self.current_step - 1) % 30 == 0:
+            for a in self.agents:
+                if isinstance(a, StudentAgent):
+                    a.budget_remaining = a.monthly_budget
 
-        Parameters
-        ----------
-        student : StudentAgent
-            The student to generate tasks for.
-        semester_multiplier : float
-            Difficulty scaling for the current semester.
+        # Task generation per course & life task generator
+        task_id_counter = self.current_step * 1000
+        for a in self.agents:
+            if not isinstance(a, StudentAgent):
+                continue
+            incoming = []
+            for course in COURSES:
+                if self.random.random() < course['lambda_tasks']:
+                    task_id_counter += 1
+                    d_min, d_max = course['difficulty_range']
+                    diff = float(self.random.uniform(d_min, d_max))
+                    ai_allowed = course['ai_allowed']
+                    if ai_allowed == 'random_50pct':
+                        ai_allowed = self.random.random() < 0.5
 
-        Returns
-        -------
-        list[TaskObject]
-            Freshly created tasks ready for acceptance decisions.
-        """
-        tasks: list[TaskObject] = []
+                    task = TaskObject(
+                        task_id=task_id_counter,
+                        task_type='academic_assignment',
+                        difficulty=diff,
+                        base_score=diff * 10.0,
+                        deadline_remaining=int(course['deadline_days']),
+                        deadline_total=int(course['deadline_days']),
+                        ai_allowed=bool(ai_allowed),
+                        course_id=course['id'],
+                    )
+                    incoming.append(task)
 
-        for course in COURSES:
-            # ---- Poisson draw for this course ----
-            n_tasks = self._np_random.poisson(course["lambda_tasks"])
-            if n_tasks <= 0:
+            # Life tasks
+            if self.random.random() < LAMBDA_LIFE:
+                task_id_counter += 1
+                task = TaskObject(
+                    task_id=task_id_counter,
+                    task_type='life_task',
+                    difficulty=5.0,
+                    base_score=50.0,
+                    deadline_remaining=3,
+                    deadline_total=3,
+                    ai_allowed=False,
+                    course_id='LIFE',
+                )
+                incoming.append(task)
+
+            a._incoming_tasks = incoming
+
+    # -------------------------------------------------------------------------
+    # Phase B: Synchronous Social Update (Submodels 7.7 - 7.9)
+    # -------------------------------------------------------------------------
+
+    def _phase_b_social_update(self) -> None:
+        """Synchronous social update on a snapshot of t-1 agent state."""
+        # 1. Take snapshot of t-1 attributes
+        snapshot = {}
+        student_agents: list[StudentAgent] = [a for a in self.agents if isinstance(a, StudentAgent)]
+        
+        for a in student_agents:
+            snapshot[a.unique_id] = {
+                'ai_tier': a.ai_tier,
+                'ai_legitimacy': a.ai_legitimacy,
+                'score_total': a.score_total,
+                'ai_used_today': a._ai_used_today,
+                'section_id': a.section_id,
+                'prosociality': a.prosociality,
+                'quota_balance': a.quota_balance,
+            }
+
+        agent_map = {a.unique_id: a for a in student_agents}
+
+        # B1. Legitimacy Diffusion (Normative)
+        for a in student_agents:
+            nbrs = list(self.social_network.neighbors(a.unique_id))
+            if not nbrs:
                 continue
 
-            for _ in range(n_tasks):
-                # ---- Difficulty: uniform in course range × semester ----
-                d_min, d_max = course["difficulty_range"]
-                difficulty = self.random.uniform(d_min, d_max) * semester_multiplier
+            obs_sum = 0.0
+            weight_sum = 0.0
+            for nbr_id in nbrs:
+                w = self.social_network[a.unique_id][nbr_id]['tie_strength']
+                if snapshot[nbr_id]['ai_used_today'] and self.random.random() < P_VISIBLE:
+                    obs_sum += w
+                weight_sum += w
 
-                # ---- AI allowed (respect scenario overrides) ----
-                ai_allowed = self._resolve_ai_allowed(course)
+            observed_frac = obs_sum / max(1e-6, weight_sum)
+            u_self = 1.0 if a._ai_used_today else 0.0
 
-                # ---- Task type ----
-                task_type = (
-                    "quiz" if course["assessment"] == "exam"
-                    else "academic_assignment"
-                )
+            l_next = a.ai_legitimacy + ETA * a.conformity * (observed_frac - a.ai_legitimacy) + ETA_SELF * u_self * (1.0 - a.ai_legitimacy)
+            a.ai_legitimacy = float(np.clip(l_next, 0.0, 1.0))
 
-                deadline = course["deadline_days"]
+        # B2. Aspiration Adjustment (Comparative)
+        for a in student_agents:
+            nbrs = list(self.social_network.neighbors(a.unique_id))
+            if not nbrs:
+                continue
 
-                tasks.append(
-                    TaskObject(
-                        task_id=self._next_task_id,
-                        task_type=task_type,
-                        difficulty=difficulty,
-                        base_score=difficulty * 10.0,
-                        deadline_remaining=deadline,
-                        deadline_total=deadline,
-                        ai_allowed=ai_allowed,
-                        course_id=course["id"],
-                    )
-                )
-                self._next_task_id += 1
+            peer_scores = [snapshot[nid]['score_total'] for nid in nbrs]
+            weights = [self.social_network[a.unique_id][nid]['tie_strength'] for nid in nbrs]
+            peer_signal = float(np.average(peer_scores, weights=weights))
 
-        # ---- Life tasks ----
-        n_life = self._np_random.poisson(LAMBDA_LIFE)
-        for _ in range(n_life):
-            life_diff = self.random.uniform(1.0, 4.0)
-            life_deadline = self.random.randint(3, 10)
-            tasks.append(
-                TaskObject(
-                    task_id=self._next_task_id,
-                    task_type="life_task",
-                    difficulty=life_diff,
-                    base_score=life_diff * 10.0,
-                    deadline_remaining=life_deadline,
-                    deadline_total=life_deadline,
-                    ai_allowed=False,
-                    course_id="LIFE",
-                )
-            )
-            self._next_task_id += 1
+            t_next = a.aspiration + KAPPA * (peer_signal - a.aspiration)
+            a.aspiration = float(np.clip(t_next, 10.0, 100.0))
 
-        self.total_tasks_generated += len(tasks)
-        return tasks
+        # B3. Access Sharing Market (Material)
+        for a in student_agents:
+            a.ai_tier_effective = a.ai_tier
+            a.borrowing_from = None
+            a.shared_seats_out = 0
 
-    # ------------------------------------------------------------------
-    # Scenario helpers
-    # ------------------------------------------------------------------
+        # Section-level scarcity
+        section_agents = {}
+        for sec in range(N_SECTIONS):
+            sec_members = [aid for aid, s in snapshot.items() if s['section_id'] == sec]
+            n_tier2_ge = sum(1 for aid in sec_members if snapshot[aid]['ai_tier'] >= 2)
+            scarcity = 1.0 - (n_tier2_ge / max(1.0, len(sec_members)))
+            section_agents[sec] = float(np.clip(scarcity, 0.0, 1.0))
 
-    def _resolve_ai_allowed(self, course: dict) -> bool:
-        """Return whether AI is allowed for *course* under the current scenario."""
-        if self.scenario == "baseline":
-            return False
+        demanders = [a for a in student_agents if a.ai_tier < 2 and a.ai_legitimacy > 0.3]
+        suppliers = {a.unique_id: SHAREABLE_SEATS[a.ai_tier] for a in student_agents if a.ai_tier >= 2}
 
-        if self.scenario == "mixed_policy" and course["id"] in ("C1", "C3"):
-            return False
+        for d in demanders:
+            sec_scarcity = section_agents[d.section_id]
+            nbrs = list(self.social_network.neighbors(d.unique_id))
+            valid_suppliers = [nid for nid in nbrs if nid in suppliers and suppliers[nid] > 0]
+            
+            if not valid_suppliers:
+                continue
 
-        raw = course["ai_allowed"]
-        if raw == "random_50pct":
-            return self.random.random() < 0.5
-        return bool(raw)
+            best_s = None
+            best_p = -1.0
+            for s_id in valid_suppliers:
+                w = self.social_network[d.unique_id][s_id]['tie_strength']
+                p_match = d.prosociality * w * sec_scarcity
+                if p_match > best_p:
+                    best_p = p_match
+                    best_s = s_id
 
-    def _apply_scenario_effects(self) -> None:
-        """Apply per-agent scenario policies after each step."""
-        if self.scenario == "baseline":
-            for agent in self.agents:
-                agent.ai_tier = 0
-                agent.quota_balance = 0.0
-
-        elif self.scenario == "universal_ai":
-            # Tier 3 free for semesters 1–4; removed thereafter
-            if self.current_semester <= 4:
-                for agent in self.agents:
-                    agent.ai_tier = 3
-            # After semester 4: agents revert to their own decisions
-            # (their _decide_ai_tier will handle it in future steps)
-
-        elif self.scenario == "subsidy":
-            for agent in self.agents:
-                if agent.SES == "low":
-                    # Ensure minimum tier 2 (free for low-SES)
-                    if agent.ai_tier < 2:
-                        agent.ai_tier = 2
-
-        # free_market and mixed_policy: no per-agent override
-
-    def _semester_difficulty_multiplier(self) -> float:
-        """Return the difficulty multiplier for the current semester.
-
-        Semester 1 = 1.0×, semester 8 = 1.56×.
-        """
-        return (
-            DIFFICULTY_MULTIPLIER_BASE
-            + (self.current_semester - 1) * DIFFICULTY_MULTIPLIER_INCREMENT
-        )
+            if best_s is not None and self.random.random() < best_p:
+                d.borrowing_from = best_s
+                d.ai_tier_effective = max(d.ai_tier, 2)
+                suppliers[best_s] -= 1
+                agent_map[best_s].shared_seats_out += 1
