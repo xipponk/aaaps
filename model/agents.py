@@ -3,7 +3,7 @@ model/agents.py — StudentAgent (v0.3 Networked Redesign).
 
 StudentAgent represents one undergraduate CS student. Implements Mesa 2.x API,
 coupled continuous dynamic states (d, c, a_r), interaction attributes,
-and daily task processing.
+continuous AI usage intensity u(t), and daily task processing.
 """
 
 from __future__ import annotations
@@ -28,6 +28,8 @@ from config.params import (
     ETA,
     ETA_SELF,
     KAPPA,
+    URGENCY_WEIGHT,
+    ASPIRATION_GAP_WEIGHT,
     TOPUP_COST,
     LOW_THRESHOLD,
     TOPUP_AMOUNT,
@@ -35,6 +37,7 @@ from config.params import (
     AI_MONTHLY_QUOTA,
     AI_QUALITY_BOOST,
     AI_SPEED_BOOST,
+    PROCESSING_DIFFICULTY_FACTOR,
     DRAIN_RATE,
     SCORE_CAP,
     TIER_BUDGET_FRACTION,
@@ -98,8 +101,8 @@ class StudentAgent(mesa.Agent):
 
     # Internal step state
     _ai_used_today: bool
+    _u_task_records: list[tuple[float, float]]  # list of (u_t, progress_delta) for daily effort-weighted u(t)
     _surprises_today: list[float]
-    _practice_today: bool
     _incoming_tasks: list[TaskObject]
 
     def __init__(
@@ -151,8 +154,8 @@ class StudentAgent(mesa.Agent):
 
         # Step tracking
         self._ai_used_today = False
+        self._u_task_records = []
         self._surprises_today = []
-        self._practice_today = False
         self._incoming_tasks = []
 
     # =========================================================================
@@ -162,8 +165,8 @@ class StudentAgent(mesa.Agent):
     def step(self) -> None:
         """Phase C individual action step (Mesa 2.x)."""
         self._ai_used_today = False
+        self._u_task_records = []
         self._surprises_today = []
-        self._practice_today = False
 
         self._evaluate_slots()
         incoming = getattr(self, "_incoming_tasks", None)
@@ -188,6 +191,26 @@ class StudentAgent(mesa.Agent):
                 if self.random.random() < accept_prob:
                     self.slot_queue.append(task)
 
+    def _compute_usage_intensity(self, task: TaskObject) -> float:
+        """Compute continuous AI usage intensity u(t) in [0, 1] per ODD §7.3."""
+        effective_tier = max(self.ai_tier, self.ai_tier_effective)
+        
+        # 1. Availability check
+        if not task.ai_allowed or effective_tier == 0 or self.quota_balance <= 0:
+            return 0.0
+
+        # 2. Base propensity: w_score + urgency + aspiration gap
+        urgency = 1.0 - (task.deadline_remaining / max(1.0, float(task.deadline_total)))
+        aspiration_gap = max(0.0, (self.aspiration - self.retained_ability) / 100.0)
+        u_base = float(np.clip(self.w_score + URGENCY_WEIGHT * urgency + ASPIRATION_GAP_WEIGHT * aspiration_gap, 0.0, 1.0))
+
+        # 3. Legitimacy gate: ai_legitimacy^(1 - conformity)
+        u_norm = math.pow(max(1e-6, self.ai_legitimacy), 1.0 - self.conformity)
+
+        # 4. Combined intensity
+        u_t = float(np.clip(u_base * u_norm, 0.0, 1.0))
+        return u_t
+
     def _process_tasks(self) -> None:
         if not self.slot_queue:
             return
@@ -195,41 +218,57 @@ class StudentAgent(mesa.Agent):
         effective_tier = max(self.ai_tier, self.ai_tier_effective)
 
         for task in self.slot_queue:
-            use_ai = False
-            if task.ai_allowed and effective_tier > 0 and self.quota_balance > 0:
-                use_ai = True
+            u_t = self._compute_usage_intensity(task)
+            if u_t > 0:
                 self._ai_used_today = True
 
-            if use_ai:
-                eff_boost = AI_SPEED_BOOST[effective_tier]
-                drain = DRAIN_RATE[effective_tier]
-                self.quota_balance = max(0.0, self.quota_balance - drain)
-            else:
-                eff_boost = 0.0
-                self._practice_today = True
+            # Effective intelligence (ODD §7.1)
+            eff_boost = AI_SPEED_BOOST[effective_tier] * u_t if task.ai_allowed else 0.0
+            effective_intelligence = self.retained_ability + eff_boost
 
-            daily_effort = (self.retained_ability + eff_boost) * self.w_score / 30.0
-            task.effort_remaining = getattr(task, 'effort_remaining', task.base_score) - daily_effort
+            # Processing time & progress delta (v0.2/ODD §7.1 formulation)
+            processing_time = (task.difficulty * PROCESSING_DIFFICULTY_FACTOR) / max(1.0, effective_intelligence)
+            progress_delta = 1.0 / max(0.1, processing_time)
+
+            task.processing_progress = min(1.0, task.processing_progress + progress_delta)
             task.deadline_remaining -= 1
+
+            # Store u_t and progress_delta for daily effort-weighted u(t) aggregation
+            self._u_task_records.append((u_t, progress_delta))
+            task._last_u_t = u_t  # Store for quality multiplier upon completion
+
+            # Quota drainage proportional to intensity u(t)
+            if effective_tier > 0 and task.ai_allowed and u_t > 0:
+                drain = DRAIN_RATE[effective_tier] * u_t * progress_delta
+                self.quota_balance = max(0.0, self.quota_balance - drain)
 
     def _complete_tasks(self) -> None:
         remaining_queue = []
-        for task in self.slot_queue:
-            effort_rem = getattr(task, 'effort_remaining', 0.0)
-            if effort_rem <= 0.0:
-                self.tasks_completed += 1
-                q_boost = AI_QUALITY_BOOST[self.ai_tier_effective] if self._ai_used_today else 0.0
-                score = min(SCORE_CAP, (100.0 - task.difficulty * 5.0) * (1.0 + q_boost))
-                self.score_total += max(0.0, score)
+        effective_tier = max(self.ai_tier, self.ai_tier_effective)
 
-                perceived_diff = task.difficulty * (1.0 - 0.4 * self.calibration_error)
-                s = surprise(perceived_diff, task.difficulty, task_completed=True, c=self.calibration_error)
-                self._surprises_today.append(s)
+        for task in self.slot_queue:
+            if task.processing_progress >= 1.0:
+                self.tasks_completed += 1
+                
+                u_t = getattr(task, '_last_u_t', 0.0)
+                quality_mult = 1.0 + AI_QUALITY_BOOST[effective_tier] * u_t * (self.retained_ability / 100.0)
+                score = min(SCORE_CAP, task.base_score * quality_mult)
+                
+                if task.deadline_remaining > 0:
+                    self.score_total += max(0.0, score)
+                    perceived_diff = task.difficulty * (1.0 - 0.4 * self.calibration_error)
+                    s = surprise(perceived_diff, task.difficulty, task_completed=True, c=self.calibration_error)
+                    self._surprises_today.append(s)
+                else:
+                    self.deadline_miss_count += 1
+                    self.miss_by_course[task.course_id] = self.miss_by_course.get(task.course_id, 0) + 1
+                    perceived_diff = task.difficulty * (1.0 - 0.4 * self.calibration_error)
+                    s = surprise(perceived_diff, task.difficulty, task_completed=False, c=self.calibration_error)
+                    self._surprises_today.append(s)
 
             elif task.deadline_remaining <= 0:
                 self.deadline_miss_count += 1
                 self.miss_by_course[task.course_id] = self.miss_by_course.get(task.course_id, 0) + 1
-                
                 perceived_diff = task.difficulty * (1.0 - 0.4 * self.calibration_error)
                 s = surprise(perceived_diff, task.difficulty, task_completed=False, c=self.calibration_error)
                 self._surprises_today.append(s)
@@ -251,15 +290,32 @@ class StudentAgent(mesa.Agent):
     # =========================================================================
 
     def update_coupled_dynamics(self) -> None:
-        u = 1.0 if self._ai_used_today else 0.0
-        practice = 1.0 if self._practice_today else 0.0
+        """Solve coupled difference equations for (d, c, a_r) in Phase D.
 
-        d_next = self.dependency + ALPHA_D * u * (1.0 - self.dependency) - DELTA_D * (1.0 - u) * self.dependency
+        Daily u(t) input is computed as the effort-weighted average of u(t)
+        across all tasks actively processed by the agent today.
+        """
+        if self._u_task_records:
+            total_weight = sum(w for _, w in self._u_task_records)
+            if total_weight > 0:
+                daily_u = sum(u * w for u, w in self._u_task_records) / total_weight
+            else:
+                daily_u = 0.0
+        else:
+            daily_u = 0.0
+
+        daily_u = float(np.clip(daily_u, 0.0, 1.0))
+
+        # 1. Dependency d
+        d_next = self.dependency + ALPHA_D * daily_u * (1.0 - self.dependency) - DELTA_D * (1.0 - daily_u) * self.dependency
         self.dependency = float(np.clip(d_next, 0.0, 1.0))
 
+        # 2. Calibration Error c
         avg_surprise = float(np.mean(self._surprises_today)) if self._surprises_today else 0.0
         c_next = self.calibration_error + BETA_C * self.dependency * (1.0 - self.calibration_error) - GAMMA_C * avg_surprise * self.calibration_error
         self.calibration_error = float(np.clip(c_next, 0.0, 1.0))
 
-        a_next = self.retained_ability + RHO_AS * practice * (self.base_ability - self.retained_ability) - LAMBDA_A * self.dependency * u * self.retained_ability
+        # 3. Retained Ability a_r
+        practice = 1.0 - daily_u
+        a_next = self.retained_ability + RHO_AS * practice * (self.base_ability - self.retained_ability) - LAMBDA_A * self.dependency * daily_u * self.retained_ability
         self.retained_ability = float(np.clip(a_next, 10.0, self.base_ability))

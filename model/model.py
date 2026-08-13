@@ -3,7 +3,7 @@ model/model.py — AaapsModel (v0.3 Networked Redesign).
 
 World container for AAAPS v0.3. Implements hybrid 2-stage scheduler,
 3 interaction submodels (Normative Diffusion, Aspiration Adjustment, Access Market),
-and data collection.
+and data collection via Mesa DataCollector.
 """
 
 from __future__ import annotations
@@ -44,6 +44,17 @@ from model.network import generate_social_network
 from model.tasks import TaskObject
 
 
+def compute_gini(model: AaapsModel) -> float:
+    """Gini coefficient of score_total across all agents."""
+    scores = sorted([a.score_total for a in model.agents if isinstance(a, StudentAgent)])
+    n = len(scores)
+    total = sum(scores)
+    if n == 0 or total == 0.0:
+        return 0.0
+    cumsum = sum((i + 1) * s for i, s in enumerate(scores))
+    return (2.0 * cumsum) / (n * total) - (n + 1.0) / n
+
+
 class AaapsModel(mesa.Model):
     """AaapsModel v0.3 — Networked Agent-Based Model of CS students."""
 
@@ -67,13 +78,15 @@ class AaapsModel(mesa.Model):
         self.current_semester = 1
         self.zero_interaction_mode = zero_interaction_mode
 
-        # 1. Instantiate 240 Agents across 6 Sections
+        # 1. Instantiate Agents across Sections
         agent_list = []
         ses_choices = ['low', 'mid', 'high']
         ses_probs = [SES_RATIO['low'], SES_RATIO['mid'], SES_RATIO['high']]
 
+        students_per_sec = max(1, self.n_students // N_SECTIONS)
+
         for uid in range(self.n_students):
-            sec_id = uid // STUDENTS_PER_SECTION
+            sec_id = min(N_SECTIONS - 1, uid // students_per_sec)
             ses = str(self.random.choices(ses_choices, weights=ses_probs)[0])
             b_cfg = BUDGET_PARAMS[ses]
             budget = float(self.random.gauss(b_cfg['mean'], b_cfg['std']))
@@ -112,6 +125,28 @@ class AaapsModel(mesa.Model):
             np_rng = np.random.default_rng(seed if seed is not None else 42)
             self.social_network = generate_social_network(agent_list, np_rng)
 
+        # 3. Mesa DataCollector setup
+        self.datacollector = mesa.DataCollector(
+            agent_reporters={
+                "score_total": lambda a: getattr(a, "score_total", 0.0),
+                "ai_dependency": lambda a: getattr(a, "dependency", 0.0),
+                "calibration_error": lambda a: getattr(a, "calibration_error", 0.0),
+                "ai_tier": lambda a: getattr(a, "ai_tier", 0),
+                "ai_tier_effective": lambda a: getattr(a, "ai_tier_effective", 0),
+                "quota_balance": lambda a: getattr(a, "quota_balance", 0.0),
+                "retained_ability": lambda a: getattr(a, "retained_ability", 0.0),
+                "deadline_miss_count": lambda a: getattr(a, "deadline_miss_count", 0),
+                "SES": lambda a: getattr(a, "SES", "mid"),
+                "base_ability": lambda a: getattr(a, "base_ability", 50.0),
+                "semester": lambda a: getattr(a.model, "current_semester", 1),
+            },
+            model_reporters={
+                "mean_score": lambda m: float(np.mean([getattr(a, "score_total", 0.0) for a in m.agents])),
+                "gini_score": compute_gini,
+                "ai_adoption_rate": lambda m: sum(1 for a in m.agents if getattr(a, "ai_tier", 0) > 0) / max(1, m.n_students),
+            },
+        )
+
     # =========================================================================
     # Step Pipeline: Hybrid 2-Stage Scheduler (Phase A -> B -> C -> D -> E)
     # =========================================================================
@@ -119,6 +154,7 @@ class AaapsModel(mesa.Model):
     def step(self) -> None:
         """Execute one daily step of the simulation."""
         self.current_step += 1
+        self._steps = self.current_step
         self.current_semester = min(N_SEMESTERS, (self.current_step - 1) // STEPS_PER_SEMESTER + 1)
 
         # --- Phase A: Environment Update ---
@@ -137,6 +173,7 @@ class AaapsModel(mesa.Model):
                 agent.update_coupled_dynamics()
 
         # --- Phase E: Data Collection ---
+        self.datacollector.collect(self)
 
     # -------------------------------------------------------------------------
     # Phase A: Environment Update
@@ -144,13 +181,11 @@ class AaapsModel(mesa.Model):
 
     def _phase_a_env_update(self) -> None:
         """Monthly budget/quota reset & task generation."""
-        # Monthly reset every 30 days
         if (self.current_step - 1) % 30 == 0:
             for a in self.agents:
                 if isinstance(a, StudentAgent):
                     a.budget_remaining = a.monthly_budget
 
-        # Task generation per course & life task generator
         task_id_counter = self.current_step * 1000
         for a in self.agents:
             if not isinstance(a, StudentAgent):
@@ -177,7 +212,6 @@ class AaapsModel(mesa.Model):
                     )
                     incoming.append(task)
 
-            # Life tasks
             if self.random.random() < LAMBDA_LIFE:
                 task_id_counter += 1
                 task = TaskObject(
@@ -200,7 +234,6 @@ class AaapsModel(mesa.Model):
 
     def _phase_b_social_update(self) -> None:
         """Synchronous social update on a snapshot of t-1 agent state."""
-        # 1. Take snapshot of t-1 attributes
         snapshot = {}
         student_agents: list[StudentAgent] = [a for a in self.agents if isinstance(a, StudentAgent)]
         
@@ -256,7 +289,6 @@ class AaapsModel(mesa.Model):
             a.borrowing_from = None
             a.shared_seats_out = 0
 
-        # Section-level scarcity
         section_agents = {}
         for sec in range(N_SECTIONS):
             sec_members = [aid for aid, s in snapshot.items() if s['section_id'] == sec]

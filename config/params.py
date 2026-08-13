@@ -59,6 +59,13 @@ PROSOCIALITY_BETA_A: Final[float] = 2.0   # [F] Trait distribution for prosocial
 PROSOCIALITY_BETA_B: Final[float] = 2.0   # [F]
 
 # =============================================================================
+# Usage Propensity Weights (ODD §7.3)
+# =============================================================================
+
+URGENCY_WEIGHT: Final[float] = 0.30       # [F] Weight of task urgency on base usage propensity
+ASPIRATION_GAP_WEIGHT: Final[float] = 0.20 # [F] Weight of aspiration gap on base usage propensity
+
+# =============================================================================
 # W-Score (willingness to invest in academics)
 # =============================================================================
 

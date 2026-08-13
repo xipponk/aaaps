@@ -1,7 +1,7 @@
 """
 model/network.py — Social Network generation for AAAPS v0.3.
 
-Generates a static Stochastic Block Model across 6 sections with SES and
+Generates a static Stochastic Block Model across sections with SES and
 ability homophily rewiring. Ensures network connectivity and target degree bounds.
 """
 
@@ -29,29 +29,22 @@ def generate_social_network(
     rng: np.random.Generator,
     max_retries: int = 50,
 ) -> nx.Graph:
-    """Generate the static social network graph for AAAPS v0.3.
-
-    Parameters
-    ----------
-    agents : list
-        List of StudentAgent instances (must have unique_id, section_id, SES, base_ability).
-    rng : np.random.Generator
-        Random number generator for reproducibility.
-    max_retries : int
-        Max attempts to build a connected graph within degree bounds.
-
-    Returns
-    -------
-    nx.Graph
-        Undirected graph where nodes are agent unique_ids and edges have attribute 'tie_strength'.
-    """
+    """Generate the static social network graph for AAAPS v0.3."""
     n = len(agents)
     agent_map = {a.unique_id: a for a in agents}
     ids = [a.unique_id for a in agents]
 
-    # Block matrix for 6 sections
-    block_sizes = [STUDENTS_PER_SECTION] * N_SECTIONS
-    prob_matrix = np.full((N_SECTIONS, N_SECTIONS), SBM_P_BETWEEN)
+    # Dynamically determine section sizes based on agent count
+    n_sections = max(1, len(set(a.section_id for a in agents)))
+    students_per_sec = n // n_sections if n_sections > 0 else n
+    block_sizes = [students_per_sec] * n_sections
+    
+    # Adjust remainder if n not perfectly divisible
+    remainder = n - sum(block_sizes)
+    if remainder > 0 and block_sizes:
+        block_sizes[-1] += remainder
+
+    prob_matrix = np.full((n_sections, n_sections), SBM_P_BETWEEN)
     np.fill_diagonal(prob_matrix, SBM_P_WITHIN)
 
     for attempt in range(max_retries):
@@ -61,7 +54,8 @@ def generate_social_network(
         )
         G = nx.Graph()
         for u, v in sbm.edges():
-            G.add_edge(ids[u], ids[v])
+            if u < len(ids) and v < len(ids):
+                G.add_edge(ids[u], ids[v])
 
         # Ensure all nodes are present in G
         for node_id in ids:
@@ -72,9 +66,7 @@ def generate_social_network(
         edges = list(G.edges())
         for u, v in edges:
             a1, a2 = agent_map[u], agent_map[v]
-            # SES homophily check
             if a1.SES != a2.SES and rng.random() < HOMOPHILY_SES:
-                # Rewire to another same-SES candidate if possible
                 same_ses = [
                     a.unique_id for a in agents
                     if a.SES == a1.SES and a.unique_id != u and not G.has_edge(u, a.unique_id)
@@ -85,7 +77,6 @@ def generate_social_network(
                     G.add_edge(u, new_v)
                     continue
 
-            # Ability homophily check (if abilities are far apart)
             ability_diff = abs(a1.base_ability - a2.base_ability)
             if ability_diff > 20.0 and rng.random() < HOMOPHILY_ABILITY:
                 similar_ability = [
@@ -102,7 +93,7 @@ def generate_social_network(
             continue
 
         degrees = [d for _, d in G.degree()]
-        k_bar = float(np.mean(degrees))
+        k_bar = float(np.mean(degrees)) if degrees else 0.0
         if not (TARGET_K_BAR_RANGE[0] <= k_bar <= TARGET_K_BAR_RANGE[1]):
             continue
 
@@ -112,13 +103,12 @@ def generate_social_network(
 
         return G
 
-    # Fallback if max_retries exceeded: construct a connected graph with k_bar in bounds
-    print(f"[Warning] SBM network generation hit max_retries ({max_retries}), using connected fallback.")
-    G = nx.erdos_renyi_graph(n, p=0.035, seed=int(rng.integers(0, 1_000_000)))
+    # Fallback if max_retries exceeded
+    p_fallback = min(1.0, 8.0 / max(1, n - 1))
+    G = nx.erdos_renyi_graph(n, p=p_fallback, seed=int(rng.integers(0, 1_000_000)))
     mapping = {i: ids[i] for i in range(n)}
     G = nx.relabel_nodes(G, mapping)
     if not nx.is_connected(G):
-        # Force connectivity via backbone ring
         for i in range(n):
             G.add_edge(ids[i], ids[(i + 1) % n])
     for u, v in G.edges():

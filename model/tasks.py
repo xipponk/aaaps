@@ -20,9 +20,5 @@ class TaskObject:
     deadline_total: int
     ai_allowed: bool
     course_id: str
-    effort_remaining: float = 0.0
     processing_progress: float = field(default=0.0)
-
-    def __post_init__(self) -> None:
-        if self.effort_remaining == 0.0:
-            self.effort_remaining = self.base_score * 3.0
+    _last_u_t: float = field(default=0.0)
