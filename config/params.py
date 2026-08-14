@@ -66,6 +66,12 @@ URGENCY_WEIGHT: Final[float] = 0.30       # [F] Weight of task urgency on base u
 ASPIRATION_GAP_WEIGHT: Final[float] = 0.20 # [F] Weight of aspiration gap on base usage propensity
 
 # =============================================================================
+# Access Market & Borrow Substitution (ODD §7.6)
+# =============================================================================
+
+BORROW_SUBSTITUTION: Final[float] = 0.60   # [F] Dampening factor on tier upgrade propensity when borrowing
+
+# =============================================================================
 # W-Score (willingness to invest in academics)
 # =============================================================================
 
