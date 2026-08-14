@@ -9,14 +9,14 @@ from __future__ import annotations
 import os
 import pandas as pd
 
-from config.params import TOTAL_STEPS, N_STUDENTS
+from config import params as P
 from model.model import AaapsModel
 
 
 def run(
     seed: int = 42,
     save_agents: bool = False,
-    n_students: int = N_STUDENTS,
+    n_students: int = P.N_STUDENTS,
     zero_interaction_mode: bool = False,
 ) -> AaapsModel:
     """Execute a single baseline simulation run."""
@@ -32,7 +32,7 @@ def run(
         a.ai_tier = 0
         a.ai_tier_effective = 0
 
-    for _step in range(TOTAL_STEPS):
+    for _step in range(P.TOTAL_STEPS):
         model.step()
 
     return model

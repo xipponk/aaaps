@@ -13,32 +13,7 @@ import mesa
 import networkx as nx
 import numpy as np
 
-from config.params import (
-    N_STUDENTS,
-    N_SECTIONS,
-    STUDENTS_PER_SECTION,
-    SES_RATIO,
-    ABILITY_MEAN,
-    ABILITY_STD,
-    ABILITY_CLAMP,
-    SR_ABILITY_WEIGHT,
-    SR_NOISE_WEIGHT,
-    BUDGET_PARAMS,
-    CONFORMITY_BETA_A,
-    CONFORMITY_BETA_B,
-    PROSOCIALITY_BETA_A,
-    PROSOCIALITY_BETA_B,
-    P_VISIBLE,
-    ETA,
-    ETA_SELF,
-    KAPPA,
-    SHAREABLE_SEATS,
-    STEPS_PER_SEMESTER,
-    N_SEMESTERS,
-    TOTAL_STEPS,
-    COURSES,
-    LAMBDA_LIFE,
-)
+from config import params as P
 from model.agents import StudentAgent
 from model.network import generate_social_network
 from model.tasks import TaskObject
@@ -66,7 +41,7 @@ class AaapsModel(mesa.Model):
 
     def __init__(
         self,
-        n_students: int = N_STUDENTS,
+        n_students: int = P.N_STUDENTS,
         scenario: str = "free_market",
         seed: int | None = None,
         zero_interaction_mode: bool = False,
@@ -81,25 +56,25 @@ class AaapsModel(mesa.Model):
         # 1. Instantiate Agents across Sections
         agent_list = []
         ses_choices = ['low', 'mid', 'high']
-        ses_probs = [SES_RATIO['low'], SES_RATIO['mid'], SES_RATIO['high']]
+        ses_probs = [P.SES_RATIO['low'], P.SES_RATIO['mid'], P.SES_RATIO['high']]
 
-        students_per_sec = max(1, self.n_students // N_SECTIONS)
+        students_per_sec = max(1, self.n_students // P.N_SECTIONS)
 
         for uid in range(self.n_students):
-            sec_id = min(N_SECTIONS - 1, uid // students_per_sec)
+            sec_id = min(P.N_SECTIONS - 1, uid // students_per_sec)
             ses = str(self.random.choices(ses_choices, weights=ses_probs)[0])
-            b_cfg = BUDGET_PARAMS[ses]
+            b_cfg = P.BUDGET_PARAMS[ses]
             budget = float(self.random.gauss(b_cfg['mean'], b_cfg['std']))
 
-            ab_raw = float(self.random.gauss(ABILITY_MEAN, ABILITY_STD))
-            ability = float(np.clip(ab_raw, ABILITY_CLAMP[0], ABILITY_CLAMP[1]))
+            ab_raw = float(self.random.gauss(P.ABILITY_MEAN, P.ABILITY_STD))
+            ability = float(np.clip(ab_raw, P.ABILITY_CLAMP[0], P.ABILITY_CLAMP[1]))
 
-            sr_raw = (ability / 100.0) * SR_ABILITY_WEIGHT + self.random.random() * SR_NOISE_WEIGHT
+            sr_raw = (ability / 100.0) * P.SR_ABILITY_WEIGHT + self.random.random() * P.SR_NOISE_WEIGHT
             sr = float(np.clip(sr_raw, 0.0, 1.0))
             hobby = float(self.random.random())
 
-            conformity = float(self.random.betavariate(CONFORMITY_BETA_A, CONFORMITY_BETA_B))
-            prosociality = float(self.random.betavariate(PROSOCIALITY_BETA_A, PROSOCIALITY_BETA_B))
+            conformity = float(self.random.betavariate(P.CONFORMITY_BETA_A, P.CONFORMITY_BETA_B))
+            prosociality = float(self.random.betavariate(P.PROSOCIALITY_BETA_A, P.PROSOCIALITY_BETA_B))
 
             agent = StudentAgent(
                 unique_id=uid,
@@ -136,6 +111,10 @@ class AaapsModel(mesa.Model):
                 "quota_balance": lambda a: getattr(a, "quota_balance", 0.0),
                 "retained_ability": lambda a: getattr(a, "retained_ability", 0.0),
                 "deadline_miss_count": lambda a: getattr(a, "deadline_miss_count", 0),
+                "tasks_completed": lambda a: getattr(a, "tasks_completed", 0),
+                "ai_legitimacy": lambda a: getattr(a, "ai_legitimacy", 0.0),
+                "borrowing_from": lambda a: getattr(a, "borrowing_from", None),
+                "shared_seats_out": lambda a: getattr(a, "shared_seats_out", 0),
                 "SES": lambda a: getattr(a, "SES", "mid"),
                 "base_ability": lambda a: getattr(a, "base_ability", 50.0),
                 "semester": lambda a: getattr(a.model, "current_semester", 1),
@@ -155,7 +134,7 @@ class AaapsModel(mesa.Model):
         """Execute one daily step of the simulation."""
         self.current_step += 1
         self._steps = self.current_step
-        self.current_semester = min(N_SEMESTERS, (self.current_step - 1) // STEPS_PER_SEMESTER + 1)
+        self.current_semester = min(P.N_SEMESTERS, (self.current_step - 1) // P.STEPS_PER_SEMESTER + 1)
 
         # --- Phase A: Environment Update ---
         self._phase_a_env_update()
@@ -180,18 +159,20 @@ class AaapsModel(mesa.Model):
     # -------------------------------------------------------------------------
 
     def _phase_a_env_update(self) -> None:
-        """Monthly budget/quota reset & task generation."""
+        """Monthly budget/quota reset, tier re-evaluation & task generation."""
         if (self.current_step - 1) % 30 == 0:
             for a in self.agents:
                 if isinstance(a, StudentAgent):
                     a.budget_remaining = a.monthly_budget
+                    # Monthly tier-purchase re-evaluation (ODD §7.6)
+                    a._reconsider_ai_tier()
 
         task_id_counter = self.current_step * 1000
         for a in self.agents:
             if not isinstance(a, StudentAgent):
                 continue
             incoming = []
-            for course in COURSES:
+            for course in P.COURSES:
                 if self.random.random() < course['lambda_tasks']:
                     task_id_counter += 1
                     d_min, d_max = course['difficulty_range']
@@ -212,7 +193,7 @@ class AaapsModel(mesa.Model):
                     )
                     incoming.append(task)
 
-            if self.random.random() < LAMBDA_LIFE:
+            if self.random.random() < P.LAMBDA_LIFE:
                 task_id_counter += 1
                 task = TaskObject(
                     task_id=task_id_counter,
@@ -260,14 +241,14 @@ class AaapsModel(mesa.Model):
             weight_sum = 0.0
             for nbr_id in nbrs:
                 w = self.social_network[a.unique_id][nbr_id]['tie_strength']
-                if snapshot[nbr_id]['ai_used_today'] and self.random.random() < P_VISIBLE:
+                if snapshot[nbr_id]['ai_used_today'] and self.random.random() < P.P_VISIBLE:
                     obs_sum += w
                 weight_sum += w
 
             observed_frac = obs_sum / max(1e-6, weight_sum)
             u_self = 1.0 if a._ai_used_today else 0.0
 
-            l_next = a.ai_legitimacy + ETA * a.conformity * (observed_frac - a.ai_legitimacy) + ETA_SELF * u_self * (1.0 - a.ai_legitimacy)
+            l_next = a.ai_legitimacy + P.ETA * a.conformity * (observed_frac - a.ai_legitimacy) + P.ETA_SELF * u_self * (1.0 - a.ai_legitimacy)
             a.ai_legitimacy = float(np.clip(l_next, 0.0, 1.0))
 
         # B2. Aspiration Adjustment (Comparative)
@@ -280,7 +261,7 @@ class AaapsModel(mesa.Model):
             weights = [self.social_network[a.unique_id][nid]['tie_strength'] for nid in nbrs]
             peer_signal = float(np.average(peer_scores, weights=weights))
 
-            t_next = a.aspiration + KAPPA * (peer_signal - a.aspiration)
+            t_next = a.aspiration + P.KAPPA * (peer_signal - a.aspiration)
             a.aspiration = float(np.clip(t_next, 10.0, 100.0))
 
         # B3. Access Sharing Market (Material)
@@ -290,14 +271,25 @@ class AaapsModel(mesa.Model):
             a.shared_seats_out = 0
 
         section_agents = {}
-        for sec in range(N_SECTIONS):
+        for sec in range(P.N_SECTIONS):
             sec_members = [aid for aid, s in snapshot.items() if s['section_id'] == sec]
             n_tier2_ge = sum(1 for aid in sec_members if snapshot[aid]['ai_tier'] >= 2)
             scarcity = 1.0 - (n_tier2_ge / max(1.0, len(sec_members)))
             section_agents[sec] = float(np.clip(scarcity, 0.0, 1.0))
 
-        demanders = [a for a in student_agents if a.ai_tier < 2 and a.ai_legitimacy > 0.3]
-        suppliers = {a.unique_id: SHAREABLE_SEATS[a.ai_tier] for a in student_agents if a.ai_tier >= 2}
+        # Demander pool (ODD §7.7): any agent below tier 3 whose own undamped
+        # willingness-to-pay (§7.6) is less than the cost of the next tier up —
+        # i.e. they'd want to upgrade but can't afford it themselves.
+        demanders = []
+        for a in student_agents:
+            if a.ai_tier_effective >= 3:
+                continue
+            wtp = P.TIER_BUDGET_FRACTION[a.SES] * a.monthly_budget * a.w_score  # undamped
+            next_tier_cost = P.AI_MONTHLY_COST[a.ai_tier_effective + 1]
+            if wtp < next_tier_cost and a.ai_legitimacy > 0.3:
+                demanders.append(a)
+
+        suppliers = {a.unique_id: P.SHAREABLE_SEATS[a.ai_tier] for a in student_agents if a.ai_tier >= 2}
 
         for d in demanders:
             sec_scarcity = section_agents[d.section_id]
@@ -318,6 +310,7 @@ class AaapsModel(mesa.Model):
 
             if best_s is not None and self.random.random() < best_p:
                 d.borrowing_from = best_s
-                d.ai_tier_effective = max(d.ai_tier, 2)
+                # Borrower receives access at the supplier's tier
+                d.ai_tier_effective = max(d.ai_tier, agent_map[best_s].ai_tier)
                 suppliers[best_s] -= 1
                 agent_map[best_s].shared_seats_out += 1

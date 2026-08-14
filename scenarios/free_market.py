@@ -9,14 +9,14 @@ from __future__ import annotations
 import os
 import pandas as pd
 
-from config.params import TOTAL_STEPS, N_STUDENTS, AI_MONTHLY_COST, TIER_BUDGET_FRACTION
+from config import params as P
 from model.model import AaapsModel
 
 
 def run(
     seed: int = 42,
     save_agents: bool = False,
-    n_students: int = N_STUDENTS,
+    n_students: int = P.N_STUDENTS,
     zero_interaction_mode: bool = False,
 ) -> AaapsModel:
     """Execute a single free_market simulation run."""
@@ -29,16 +29,16 @@ def run(
 
     # Initial AI tier purchase based on budget & WTP fraction
     for a in model.agents:
-        wtp_budget = a.monthly_budget * TIER_BUDGET_FRACTION[a.SES]
-        if wtp_budget >= AI_MONTHLY_COST[3]:
+        wtp_budget = a.monthly_budget * P.TIER_BUDGET_FRACTION[a.SES]
+        if wtp_budget >= P.AI_MONTHLY_COST[3]:
             a.ai_tier = 3
-        elif wtp_budget >= AI_MONTHLY_COST[2]:
+        elif wtp_budget >= P.AI_MONTHLY_COST[2]:
             a.ai_tier = 2
         else:
             a.ai_tier = 1  # Free tier
         a.ai_tier_effective = a.ai_tier
 
-    for _step in range(TOTAL_STEPS):
+    for _step in range(P.TOTAL_STEPS):
         model.step()
 
     return model

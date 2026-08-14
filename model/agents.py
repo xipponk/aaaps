@@ -14,35 +14,7 @@ from typing import TYPE_CHECKING, Any
 import mesa
 import numpy as np
 
-from config.params import (
-    N_SLOTS_DIVISOR,
-    N_SLOTS_BASE,
-    W_SCORE_MIN,
-    W_SCORE_MAX,
-    ALPHA_D,
-    DELTA_D,
-    BETA_C,
-    GAMMA_C,
-    RHO_AS,
-    LAMBDA_A,
-    ETA,
-    ETA_SELF,
-    KAPPA,
-    URGENCY_WEIGHT,
-    ASPIRATION_GAP_WEIGHT,
-    TOPUP_COST,
-    LOW_THRESHOLD,
-    TOPUP_AMOUNT,
-    AI_MONTHLY_COST,
-    AI_MONTHLY_QUOTA,
-    AI_QUALITY_BOOST,
-    AI_SPEED_BOOST,
-    PROCESSING_DIFFICULTY_FACTOR,
-    DRAIN_RATE,
-    SCORE_CAP,
-    TIER_BUDGET_FRACTION,
-    SHAREABLE_SEATS,
-)
+from config import params as P
 
 if TYPE_CHECKING:
     from model.tasks import TaskObject
@@ -125,10 +97,10 @@ class StudentAgent(mesa.Agent):
         self.SES = ses
         self.section_id = section_id
         self.monthly_budget = monthly_budget
-        self.N_slots = int(self.base_ability / N_SLOTS_DIVISOR) + N_SLOTS_BASE
+        self.N_slots = int(self.base_ability / P.N_SLOTS_DIVISOR) + P.N_SLOTS_BASE
         self.self_regulation = self_regulation
         self.hobby_pull = hobby_pull
-        self.w_score = max(W_SCORE_MIN, min(W_SCORE_MAX, 1.0 - hobby_pull))
+        self.w_score = max(P.W_SCORE_MIN, min(P.W_SCORE_MAX, 1.0 - hobby_pull))
         self.conformity = conformity
         self.prosociality = prosociality
 
@@ -202,7 +174,7 @@ class StudentAgent(mesa.Agent):
         # 2. Base propensity: w_score + urgency + aspiration gap
         urgency = 1.0 - (task.deadline_remaining / max(1.0, float(task.deadline_total)))
         aspiration_gap = max(0.0, (self.aspiration - self.retained_ability) / 100.0)
-        u_base = float(np.clip(self.w_score + URGENCY_WEIGHT * urgency + ASPIRATION_GAP_WEIGHT * aspiration_gap, 0.0, 1.0))
+        u_base = float(np.clip(self.w_score + P.URGENCY_WEIGHT * urgency + P.ASPIRATION_GAP_WEIGHT * aspiration_gap, 0.0, 1.0))
 
         # 3. Legitimacy gate: ai_legitimacy^(1 - conformity)
         u_norm = math.pow(max(1e-6, self.ai_legitimacy), 1.0 - self.conformity)
@@ -223,11 +195,11 @@ class StudentAgent(mesa.Agent):
                 self._ai_used_today = True
 
             # Effective intelligence (ODD §7.1)
-            eff_boost = AI_SPEED_BOOST[effective_tier] * u_t if task.ai_allowed else 0.0
+            eff_boost = P.AI_SPEED_BOOST[effective_tier] * u_t if task.ai_allowed else 0.0
             effective_intelligence = self.retained_ability + eff_boost
 
             # Processing time & progress delta (v0.2/ODD §7.1 formulation)
-            processing_time = (task.difficulty * PROCESSING_DIFFICULTY_FACTOR) / max(1.0, effective_intelligence)
+            processing_time = (task.difficulty * P.PROCESSING_DIFFICULTY_FACTOR) / max(1.0, effective_intelligence)
             progress_delta = 1.0 / max(0.1, processing_time)
 
             task.processing_progress = min(1.0, task.processing_progress + progress_delta)
@@ -239,7 +211,7 @@ class StudentAgent(mesa.Agent):
 
             # Quota drainage proportional to intensity u(t)
             if effective_tier > 0 and task.ai_allowed and u_t > 0:
-                drain = DRAIN_RATE[effective_tier] * u_t * progress_delta
+                drain = P.DRAIN_RATE[effective_tier] * u_t * progress_delta
                 self.quota_balance = max(0.0, self.quota_balance - drain)
 
     def _complete_tasks(self) -> None:
@@ -251,8 +223,8 @@ class StudentAgent(mesa.Agent):
                 self.tasks_completed += 1
                 
                 u_t = getattr(task, '_last_u_t', 0.0)
-                quality_mult = 1.0 + AI_QUALITY_BOOST[effective_tier] * u_t * (self.retained_ability / 100.0)
-                score = min(SCORE_CAP, task.base_score * quality_mult)
+                quality_mult = 1.0 + P.AI_QUALITY_BOOST[effective_tier] * u_t * (self.retained_ability / 100.0)
+                score = min(P.SCORE_CAP, task.base_score * quality_mult)
                 
                 if task.deadline_remaining > 0:
                     self.score_total += max(0.0, score)
@@ -279,11 +251,40 @@ class StudentAgent(mesa.Agent):
         self.slot_queue = remaining_queue
 
     def _manage_quota(self) -> None:
-        if self.ai_tier in (2, 3) and self.quota_balance < LOW_THRESHOLD:
-            cost = TOPUP_COST[self.ai_tier]
+        if self.ai_tier in (2, 3) and self.quota_balance < P.LOW_THRESHOLD:
+            cost = P.TOPUP_COST[self.ai_tier]
             if self.budget_remaining >= cost:
                 self.budget_remaining -= cost
-                self.quota_balance += TOPUP_AMOUNT
+                self.quota_balance += P.TOPUP_AMOUNT
+
+    def _reconsider_ai_tier(self) -> None:
+        """Monthly tier-purchase re-evaluation (ODD §7.6, Phase A cadence).
+
+        Recomputes willingness-to-pay for the agent's own AI subscription and
+        re-selects the highest affordable tier.  Borrowed access suppresses
+        willingness-to-pay via BORROW_SUBSTITUTION — the substitution effect
+        that drives the policy-backfire result (§4.3).
+
+        Reads ``borrowing_from`` as of the end of the previous month (Phase B
+        of the prior step, since Phase A runs before Phase B in the cycle).
+        """
+        # Willingness-to-pay for own subscription (ODD §7.6)
+        wtp = P.TIER_BUDGET_FRACTION[self.SES] * self.monthly_budget * self.w_score
+
+        # Borrowed access suppresses purchase — the substitution effect
+        if self.borrowing_from is not None:
+            wtp *= P.BORROW_SUBSTITUTION  # < 1
+
+        best_tier = 0
+        for tier in (3, 2, 1):  # best-first
+            cost = P.AI_MONTHLY_COST[tier]
+            if cost <= self.budget_remaining and cost <= wtp:
+                best_tier = tier
+                break
+
+        self.ai_tier = best_tier
+        self.ai_tier_effective = best_tier
+
 
     # =========================================================================
     # Phase D: Coupled Continuous State Update
@@ -307,15 +308,15 @@ class StudentAgent(mesa.Agent):
         daily_u = float(np.clip(daily_u, 0.0, 1.0))
 
         # 1. Dependency d
-        d_next = self.dependency + ALPHA_D * daily_u * (1.0 - self.dependency) - DELTA_D * (1.0 - daily_u) * self.dependency
+        d_next = self.dependency + P.ALPHA_D * daily_u * (1.0 - self.dependency) - P.DELTA_D * (1.0 - daily_u) * self.dependency
         self.dependency = float(np.clip(d_next, 0.0, 1.0))
 
         # 2. Calibration Error c
         avg_surprise = float(np.mean(self._surprises_today)) if self._surprises_today else 0.0
-        c_next = self.calibration_error + BETA_C * self.dependency * (1.0 - self.calibration_error) - GAMMA_C * avg_surprise * self.calibration_error
+        c_next = self.calibration_error + P.BETA_C * self.dependency * (1.0 - self.calibration_error) - P.GAMMA_C * avg_surprise * self.calibration_error
         self.calibration_error = float(np.clip(c_next, 0.0, 1.0))
 
         # 3. Retained Ability a_r
         practice = 1.0 - daily_u
-        a_next = self.retained_ability + RHO_AS * practice * (self.base_ability - self.retained_ability) - LAMBDA_A * self.dependency * daily_u * self.retained_ability
+        a_next = self.retained_ability + P.RHO_AS * practice * (self.base_ability - self.retained_ability) - P.LAMBDA_A * self.dependency * daily_u * self.retained_ability
         self.retained_ability = float(np.clip(a_next, 10.0, self.base_ability))

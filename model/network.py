@@ -10,18 +10,7 @@ from __future__ import annotations
 import networkx as nx
 import numpy as np
 
-from config.params import (
-    N_STUDENTS,
-    N_SECTIONS,
-    STUDENTS_PER_SECTION,
-    SBM_P_WITHIN,
-    SBM_P_BETWEEN,
-    HOMOPHILY_SES,
-    HOMOPHILY_ABILITY,
-    TARGET_K_BAR_RANGE,
-    TIE_STRENGTH_BETA_A,
-    TIE_STRENGTH_BETA_B,
-)
+from config import params as P
 
 
 def generate_social_network(
@@ -44,8 +33,8 @@ def generate_social_network(
     if remainder > 0 and block_sizes:
         block_sizes[-1] += remainder
 
-    prob_matrix = np.full((n_sections, n_sections), SBM_P_BETWEEN)
-    np.fill_diagonal(prob_matrix, SBM_P_WITHIN)
+    prob_matrix = np.full((n_sections, n_sections), P.SBM_P_BETWEEN)
+    np.fill_diagonal(prob_matrix, P.SBM_P_WITHIN)
 
     for attempt in range(max_retries):
         # 1. Base SBM Graph
@@ -66,7 +55,7 @@ def generate_social_network(
         edges = list(G.edges())
         for u, v in edges:
             a1, a2 = agent_map[u], agent_map[v]
-            if a1.SES != a2.SES and rng.random() < HOMOPHILY_SES:
+            if a1.SES != a2.SES and rng.random() < P.HOMOPHILY_SES:
                 same_ses = [
                     a.unique_id for a in agents
                     if a.SES == a1.SES and a.unique_id != u and not G.has_edge(u, a.unique_id)
@@ -78,7 +67,7 @@ def generate_social_network(
                     continue
 
             ability_diff = abs(a1.base_ability - a2.base_ability)
-            if ability_diff > 20.0 and rng.random() < HOMOPHILY_ABILITY:
+            if ability_diff > 20.0 and rng.random() < P.HOMOPHILY_ABILITY:
                 similar_ability = [
                     a.unique_id for a in agents
                     if abs(a.base_ability - a1.base_ability) <= 15.0 and a.unique_id != u and not G.has_edge(u, a.unique_id)
@@ -94,12 +83,12 @@ def generate_social_network(
 
         degrees = [d for _, d in G.degree()]
         k_bar = float(np.mean(degrees)) if degrees else 0.0
-        if not (TARGET_K_BAR_RANGE[0] <= k_bar <= TARGET_K_BAR_RANGE[1]):
+        if not (P.TARGET_K_BAR_RANGE[0] <= k_bar <= P.TARGET_K_BAR_RANGE[1]):
             continue
 
         # 4. Assign edge tie_strength ~ Beta(2,2)
         for u, v in G.edges():
-            G[u][v]['tie_strength'] = float(rng.beta(TIE_STRENGTH_BETA_A, TIE_STRENGTH_BETA_B))
+            G[u][v]['tie_strength'] = float(rng.beta(P.TIE_STRENGTH_BETA_A, P.TIE_STRENGTH_BETA_B))
 
         return G
 
@@ -112,5 +101,5 @@ def generate_social_network(
         for i in range(n):
             G.add_edge(ids[i], ids[(i + 1) % n])
     for u, v in G.edges():
-        G[u][v]['tie_strength'] = float(rng.beta(TIE_STRENGTH_BETA_A, TIE_STRENGTH_BETA_B))
+        G[u][v]['tie_strength'] = float(rng.beta(P.TIE_STRENGTH_BETA_A, P.TIE_STRENGTH_BETA_B))
     return G
