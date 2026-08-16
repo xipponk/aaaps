@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "AAAPS: AI-Augmented Academic Performance Simulation (v0.3)"
+abstract: >-
+  A networked agent-based model of 240 undergraduate students across six academic
+  sections, simulating how differential access to generative AI tools interacts with
+  individual ability, socioeconomic status, and peer social networks to shape academic
+  inequality and cognitive dependency.
+authors:
+  - family-names: Triyason
+    given-names: Tuul
+    affiliation: "School of Information Technology, King Mongkut's University of Technology Thonburi (KMUTT)"
+    email: tuul.tri@sit.kmutt.ac.th
+keywords:
+  - agent-based model
+  - artificial intelligence
+  - higher education
+  - digital divide
+  - sensitivity analysis
+  - social networks
+license: MIT
+version: 0.3.0
+date-released: "2026-08-16"
+repository-code: "https://github.com/xipponk/aaaps"

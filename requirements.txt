@@ -1,4 +1,4 @@
-mesa==2.3.0
+mesa>=2.4.0
 numpy
 pandas
 matplotlib
@@ -10,3 +10,5 @@ ipykernel
 tqdm
 joblib
 pyarrow
+networkx
+salib

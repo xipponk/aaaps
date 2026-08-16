@@ -25,3 +25,4 @@ dist/
 # Jupyter notebook checkpoints
 notebooks/.ipynb_checkpoints/
 CLAUDE.md
+morris_execution.log
