@@ -3,9 +3,9 @@
 **Purpose:** Redesign the v0.2 flat/parallel model into a genuine networked ABM,
 addressing JASSS desk-rejection critiques. This is a structural rewrite, not a patch.
 
-**Full spec of record:** ODD_Protocol_AAAPS_v0_3.md (ask Aj. Tuul for the latest copy
-if not already placed in this docs/ folder — this brief is a condensed implementation
-view, the ODD is authoritative for anything ambiguous below).
+**Full spec of record:** `ODD_Protocol_AAAPS_v0_3.md` (in this `docs/` folder) — that
+document is the authoritative ODD description; this brief is a condensed implementation
+view for anything ambiguous below.
 
 ---
 
