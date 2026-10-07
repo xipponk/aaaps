@@ -45,6 +45,7 @@ class AaapsModel(mesa.Model):
         scenario: str = "free_market",
         seed: int | None = None,
         zero_interaction_mode: bool = False,
+        disabled_submodels: frozenset[str] = frozenset(),
     ) -> None:
         super().__init__(seed=seed)
         self.n_students = n_students
@@ -52,6 +53,14 @@ class AaapsModel(mesa.Model):
         self.current_step = 0
         self.current_semester = 1
         self.zero_interaction_mode = zero_interaction_mode
+        # Interaction isolation: any of {"norms", "aspiration", "market"} (B1, B2, B3).
+        # "norms" off freezes ai_legitimacy at its initial value (self-use reinforcement lives in B1).
+        # "market" off keeps the per-step reset of borrowing state but skips matching.
+        # "aspiration" off freezes aspiration at base ability.
+        unknown = set(disabled_submodels) - {"norms", "aspiration", "market"}
+        if unknown:
+            raise ValueError(f"unknown submodel(s): {sorted(unknown)}")
+        self.disabled_submodels = frozenset(disabled_submodels)
 
         # 1. Instantiate Agents across Sections
         agent_list = []
@@ -232,7 +241,7 @@ class AaapsModel(mesa.Model):
         agent_map = {a.unique_id: a for a in student_agents}
 
         # B1. Legitimacy Diffusion (Normative)
-        for a in student_agents:
+        for a in ([] if "norms" in self.disabled_submodels else student_agents):
             nbrs = list(self.social_network.neighbors(a.unique_id))
             if not nbrs:
                 continue
@@ -252,7 +261,7 @@ class AaapsModel(mesa.Model):
             a.ai_legitimacy = float(np.clip(l_next, 0.0, 1.0))
 
         # B2. Aspiration Adjustment (Comparative)
-        for a in student_agents:
+        for a in ([] if "aspiration" in self.disabled_submodels else student_agents):
             nbrs = list(self.social_network.neighbors(a.unique_id))
             if not nbrs:
                 continue
@@ -291,7 +300,7 @@ class AaapsModel(mesa.Model):
 
         suppliers = {a.unique_id: P.SHAREABLE_SEATS[a.ai_tier] for a in student_agents if a.ai_tier >= 2}
 
-        for d in demanders:
+        for d in ([] if "market" in self.disabled_submodels else demanders):
             sec_scarcity = section_agents[d.section_id]
             nbrs = list(self.social_network.neighbors(d.unique_id))
             valid_suppliers = [nid for nid in nbrs if nid in suppliers and suppliers[nid] > 0]
