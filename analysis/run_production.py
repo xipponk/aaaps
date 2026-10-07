@@ -63,6 +63,11 @@ def _apply_scenario_policy(model: AaapsModel, scenario: str) -> None:
                 a.ai_tier = 3
                 a.ai_tier_effective = 3
         # else: no override — _reconsider_ai_tier() governs from semester 5 onward
+    elif scenario == "universal_permanent":
+        # Permanent universal access: free tier 3 for everyone in every step
+        for a in model.agents:
+            a.ai_tier = 3
+            a.ai_tier_effective = 3
     elif scenario == "targeted_subsidy":
         for a in model.agents:
             if a.SES == "low" and a.ai_tier < 2:
@@ -86,7 +91,11 @@ def _compute_metrics(model: AaapsModel) -> dict[str, float]:
     total_completed = float(df['tasks_completed'].sum())
     deadline_miss_rate = total_missed / max(1.0, total_missed + total_completed)
 
+    mean_base = float(np.mean(df['base_ability']))
+    mean_ar = float(np.mean(df['retained_ability']))
     return {
+        'mean_base_ability': mean_base,
+        'relative_ability_decline': 1.0 - mean_ar / mean_base,
         'mean_score': float(np.mean(scores)),
         'std_score': float(np.std(scores)),
         'gini_score': float(gini),

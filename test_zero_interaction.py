@@ -3,8 +3,8 @@ test_zero_interaction.py — ODD §8 Zero-Interaction Baseline Verification.
 
 Part A: Compares v0.3 zero-interaction mode (N=60, seed=42) against the
         pre-redesign v0.2 free_market ground truth dataset
-        (~/projects/aaaps_main_free_market_seed42_GROUNDTRUTH.csv) for score_total
-        and deadline_miss_count.
+        (path given with --ground-truth, default outputs/reference/v02_free_market_seed42.csv
+        relative to the repo root) for score_total and deadline_miss_count.
 
 Part B: Compares v0.3 zero-interaction mode vs. v0.3 full-network mode (N=240, seed=42)
         for continuous coupled state variables (ai_dependency, calibration_error,
@@ -13,6 +13,7 @@ Part B: Compares v0.3 zero-interaction mode vs. v0.3 full-network mode (N=240, s
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 import pandas as pd
@@ -21,28 +22,32 @@ from scipy import stats
 
 from scenarios.free_market import run as run_free_market
 
+REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_GROUND_TRUTH = os.path.join(REPO_ROOT, "outputs", "reference", "v02_free_market_seed42.csv")
 
-def run_verification_suite() -> None:
+
+def run_verification_suite(ground_truth_path: str) -> None:
     print("=================================================================")
-    print("AAAPS v0.3 Verification Suite (ODD §8)")
+    print("AAAPS Verification Suite (ODD §8)")
     print("=================================================================\n")
 
     # -------------------------------------------------------------------------
     # PART A: v0.3 Zero-Interaction vs. v0.2 Ground Truth
     # -------------------------------------------------------------------------
     print("--- PART A: Zero-Interaction v0.3 vs. v0.2 Ground Truth Baseline ---")
-    ground_truth_path = "/home/tuul/projects/aaaps_main_free_market_seed42_GROUNDTRUTH.csv"
-    
+    ground_truth_path = os.path.abspath(ground_truth_path)
+
     if not os.path.exists(ground_truth_path):
         print(f"[ERROR] Ground truth file not found at {ground_truth_path}!")
-        return
+        sys.exit(1)
 
     df_v02 = pd.read_csv(ground_truth_path)
     final_step = df_v02['Step'].max()
     df_v02_final = df_v02[df_v02['Step'] == final_step]
-    
+
     print(f"LOADED GROUND TRUTH FILE: {ground_truth_path}")
-    print(f"Shape: {df_v02_final.shape} (Step {final_step}, N={len(df_v02_final)})\n")
+    print(f"Full shape: {df_v02.shape}, Step max: {final_step}")
+    print(f"Final-step shape: {df_v02_final.shape} (N={len(df_v02_final)})\n")
 
     print("Running v0.3 zero-interaction simulation (N=60, seed=42, 960 steps)...")
     model_v03_zero_60 = run_free_market(seed=42, n_students=60, zero_interaction_mode=True)
@@ -90,4 +95,7 @@ def run_verification_suite() -> None:
 
 
 if __name__ == "__main__":
-    run_verification_suite()
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--ground-truth", default=DEFAULT_GROUND_TRUTH,
+                    help="CSV of the v0.2 free_market seed 42 run (columns Step, score_total, deadline_miss_count)")
+    run_verification_suite(ap.parse_args().ground_truth)
