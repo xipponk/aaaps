@@ -45,3 +45,54 @@ DOI 10.1016/S2468-1253(25)00133-5). The ADR figures (28.4 to 22.4 percent) have 
 seen in secondary sources so far and must be confirmed from the publisher abstract by
 Aj. Tuul before they are used as evidence. references.bib on faraday has the wrong volume
 and pages for this paper (10(8) 742-751); the Crossref record is 10(10):896-903.
+
+## Phase 2 entries (v0.4 code, LAMBDA_A = 0.0020, RHO_RATIO = 0.5, SR_ABILITY_WEIGHT = 0.34)
+
+### v0.2 reference
+Regenerated from git worktree a1f980b with analysis/run_v02_reference.py: 100 seeds x 60 agents
+at step 960, outputs/reference/v02_free_market_final_step_100seeds.csv, shape (6000, 14), Step max
+960. Seed 42 final-step score_total is identical to the saved GROUNDTRUTH file
+(57,600 x 13, Step max 960). Mean over seeds of per-seed mean score 36,053, deadline misses 8.94.
+
+### Zero-interaction vs v0.2 (pre-declared margin +-10 percent, Welch TOST, 100 seeds, N = 60)
+NOT equivalent. Score: v0.4 31,936 vs v0.2 36,053 (difference -11.4 percent, 90 percent
+bootstrap CI -4,386 to -3,847, margin +-3,605, TOST p = 0.999, KS D = 0.95). Deadline misses:
+16.24 vs 8.94 (+81.7 percent, CI 6.73 to 7.86, margin +-0.89, KS D = 0.88). The earlier paper
+phrase "within stochastic bounds" is not supported. Structural differences read from the code
+(causes not isolated by an ablation): v0.2 decides AI use per task as a binary choice with the
+full tier effect (_decide_ai_tier) and accepts tasks by a self-regulation threshold; v0.4 uses a
+continuous intensity u(t) gated by legitimacy, which stays at its initial 0.10 when interaction
+is off, and adds coupled dependency, calibration and ability erosion. v0.2 also has phase-based
+effort reduction and erosion driven by dependency. An ablation (for example LAMBDA_A = 0,
+legitimacy fixed high) would be needed to say which difference drives the gap.
+
+### Interaction isolation (free_market, N = 240, 100 paired seeds, paired bootstrap 95 percent CI)
+Effect of removing each submodel, relative to the full model:
+- Norm diffusion off: dependency 0.241 to 0.086 (-0.155, CI -0.158 to -0.152); calibration error
+  0.380 to 0.246; retained ability 44.98 to 49.36 (+4.37); score 32,265 to 31,852 (-1.3 percent);
+  legitimacy 0.41 to 0.10.
+- Aspiration adjustment off: dependency -0.019, calibration error -0.011, retained ability +0.69,
+  score -17 (-0.05 percent). Small but distinguishable from zero.
+- Access market off: no effect (dependency -0.0000, CI -0.0004 to 0.0003; score -5, CI -20 to +9).
+- All three off with the network kept, and zero_interaction_mode, give identical means
+  (dependency 0.0777, calibration 0.230, retained ability 49.45, score 31,820).
+Caveats. (1) "Norms off" freezes legitimacy at its initial 0.10, so it measures the effect of a
+low fixed legitimacy as much as the effect of social diffusion. (2) The market only admits
+demanders with legitimacy above 0.3, so switching norms off also switches the market off
+(0 borrowers in a 60-step smoke test); the three submodels are not independent. (3) The earlier
+single-seed isolation numbers (dependency 0.109 to 0.354, D = 0.592) are superseded by these.
+
+### Production, 100 seeds per scenario (measured, not targets)
+Relative decline of mean retained ability at step 960 (LAMBDA_A calibrated on permanent
+universal access only): baseline 0.0 percent, mixed_policy 5.2, free_market 9.9,
+targeted_subsidy 17.1, universal temporary 17.2, universal permanent 20.8.
+Mean score: baseline 31,489; mixed 32,103; free_market 32,265; targeted 32,537; universal
+temporary 33,642; universal permanent 35,268. Gini: 0.124, 0.125, 0.125, 0.125, 0.120, 0.111.
+Dependency: 0.002, 0.182, 0.241, 0.411, 0.376, 0.540. Calibration error: 0.011, 0.347, 0.380,
+0.646, 0.865, 0.891. Deadline misses: 16.6, 17.9, 17.3, 18.0, 18.5, 18.2.
+Borrowers at the last step: 0, 16.0, 19.7, 22.7, 34.0, 0; ever borrowed: 0.5, 98.7, 114.1,
+202.2, 208.6, 199.1. Artifact: the post-step tier override lets agents borrow on the first step
+of each month (tiers are re-evaluated in Phase A before the override), which is why universal
+permanent shows ever_borrowed = 199 with 0 borrowers at the end, and baseline shows small
+nonzero dependency (0.0017).
+Files: outputs/phase2/production_v04_runs.csv (600 x 17), production_v04_ses_tier.csv (3,794 x 9).
