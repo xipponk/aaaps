@@ -111,9 +111,8 @@ def _compute_metrics(model: AaapsModel) -> dict[str, float]:
     }
 
 
-def _run_one(scenario_seed: tuple[str, int]) -> dict:
-    scenario, seed = scenario_seed
-
+def _simulate(scenario: str, seed: int) -> AaapsModel:
+    """Run one full simulation for a scenario and seed and return the finished model."""
     saved_c3 = P.COURSES[2]['ai_allowed']
     if scenario == "mixed_policy":
         # Stricter course policy: C3 (Lab/Practical) also disallows AI (C1 already False)
@@ -139,12 +138,17 @@ def _run_one(scenario_seed: tuple[str, int]) -> dict:
             model.step()
             _apply_scenario_policy(model, scenario)
 
-        metrics = _compute_metrics(model)
-        metrics['scenario'] = scenario
-        metrics['seed'] = seed
-        return metrics
+        return model
     finally:
         P.COURSES[2]['ai_allowed'] = saved_c3
+
+
+def _run_one(scenario_seed: tuple[str, int]) -> dict:
+    scenario, seed = scenario_seed
+    metrics = _compute_metrics(_simulate(scenario, seed))
+    metrics['scenario'] = scenario
+    metrics['seed'] = seed
+    return metrics
 
 
 def run_production():

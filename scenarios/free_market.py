@@ -18,6 +18,7 @@ def run(
     save_agents: bool = False,
     n_students: int = P.N_STUDENTS,
     zero_interaction_mode: bool = False,
+    disabled_submodels: frozenset[str] = frozenset(),
 ) -> AaapsModel:
     """Execute a single free_market simulation run."""
     model = AaapsModel(
@@ -25,6 +26,7 @@ def run(
         scenario="free_market",
         seed=seed,
         zero_interaction_mode=zero_interaction_mode,
+        disabled_submodels=disabled_submodels,
     )
 
     # Initial AI tier purchase based on budget & WTP fraction
