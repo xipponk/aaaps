@@ -96,3 +96,56 @@ of each month (tiers are re-evaluated in Phase A before the override), which is 
 permanent shows ever_borrowed = 199 with 0 borrowers at the end, and baseline shows small
 nonzero dependency (0.0017).
 Files: outputs/phase2/production_v04_runs.csv (600 x 17), production_v04_ses_tier.csv (3,794 x 9).
+
+### Ablation: zero-interaction with LAMBDA_A = 0 vs v0.2 (exploratory, post hoc, same margin and tests)
+Still not equivalent. Score: 31,969 vs 36,053 (-11.3 percent, 90 percent bootstrap CI -4,353 to
+-3,816, TOST p = 0.998). Deadline misses 16.18 vs 8.94 (+80.9 percent, CI 6.66 to 7.80, TOST
+p = 1.0). Retained ability equals base ability in every agent (max difference 0.0), so the
+switch worked. Ability erosion is therefore not what separates v0.4 from v0.2 in the
+zero-interaction setting (in the primary run mean relative decline was only 0.95 percent). Other
+structural differences (binary vs continuous AI use, legitimacy fixed at 0.10, task acceptance,
+v0.2 effort and phase effects) are untested.
+
+### Interaction isolation addendum: what the "norms" switch removes
+The no_norms switch skips the whole B1 loop, so it removes BOTH peer diffusion (ETA) and
+self-use reinforcement (ETA_SELF). Evidence: mean legitimacy is exactly 0.1000 in every no_norms
+run. New condition no_peer_norms (ETA = 0, ETA_SELF kept; 100 paired seeds, free_market,
+N = 240) against full: dependency 0.2413 to 0.2841 (+0.0428, CI 0.0423 to 0.0434), calibration
+error +0.0119, retained ability -2.24 (CI -2.28 to -2.21), score -77 (-0.24 percent, CI -93 to
+-61), legitimacy 0.410 to 0.472. So the large no_norms effect (dependency -64 percent) comes
+from removing self-use reinforcement, and removing peer influence alone RAISES dependency and
+legitimacy, i.e. with the current parameters peer diffusion pulls legitimacy down.
+
+### Items noted for review (not interpreted until after Gate 3)
+Numbers from the 100-seed production run BEFORE the scenario-override fix; recomputed after the
+rerun. Paired by seed, bootstrap 95 percent CI (analysis/production_contrasts.py).
+(a) Deadline misses are higher than baseline (16.64) in every scenario: free_market +0.67
+    (CI 0.58 to 0.76), mixed_policy +1.21 (1.12 to 1.31), targeted_subsidy +1.39 (1.26 to 1.53),
+    universal temporary +1.82 (1.68 to 1.96), universal permanent +1.56 (1.39 to 1.73).
+    mixed_policy also has more misses than free_market (+0.54, CI 0.43 to 0.65).
+(b) Gini is not lower than baseline (0.1236) in free_market (+0.0014, CI 0.0010 to 0.0019),
+    mixed_policy (+0.0014, CI 0.0010 to 0.0017) and targeted_subsidy (+0.0012, CI 0.0007 to
+    0.0017). targeted_subsidy vs free_market: -0.0003, CI -0.0006 to 0.0001. Only the universal
+    scenarios lower gini (temporary -0.0041, permanent -0.0125 vs baseline).
+(c) The access market has no population-level effect in free_market: dependency -0.0000
+    (CI -0.0004 to 0.0003), calibration error +0.0001, retained ability +0.007 (CI -0.002 to
+    0.016), score -5 (CI -20 to +9), 100 paired seeds.
+
+### Morris screening, v0.4 (free_market, 23 parameters, r = 20, 3 seeds averaged per design point)
+480 design points x seeds 2000-2002 = 1,440 runs in 40.1 min; manifest records git 035e766 (clean),
+.venv python 3.11, SALib 1.5.2; per-seed metrics in outputs/phase2/morris_v04_runs_raw.csv (1,440 x 37).
+Composite = max over metrics of column-normalised mu*. Ranking: DELTA_D 1.00, BETA_C 1.00,
+P_VISIBLE 1.00, PROCESSING_DIFFICULTY_FACTOR 1.00, ABILITY_STD 1.00, ABILITY_MEAN 1.00, ETA_SELF 1.00,
+PROSOCIALITY_BETA_A 0.88, ETA 0.84, ALPHA_D 0.74, GAMMA_C 0.43, CONFORMITY_BETA_B 0.34,
+LAMBDA_A 0.32, ASPIRATION_GAP_WEIGHT 0.30, SBM_P_BETWEEN 0.27, RHO_RATIO 0.24, KAPPA 0.24,
+BORROW_SUBSTITUTION 0.21, HOMOPHILY_SES 0.20, SBM_P_WITHIN 0.20, SHAREABLE_SEATS_TIER3 0.18,
+URGENCY_WEIGHT 0.15, HOMOPHILY_ABILITY 0.14.
+Caveats on the ranking itself: ai_adoption_rate is constant (1.0) in free_market, so its mu* is
+undefined (NaN) and it carries no information; borrowing_agent_count and total_shared_seats_lent are
+identical in every run (duplicate metric); every parameter scores 0.14 to 0.28 on the borrowing
+columns, which looks like a noise floor, so composite values below about 0.3 are not
+distinguishable from noise; mean_retained_ability is in absolute points and is dominated by
+ABILITY_MEAN, which hides LAMBDA_A and RHO_RATIO (a relative-decline metric would not).
+v0.3 Sobol set (12 parameters) vs v0.4 top 12: SBM_P_BETWEEN drops out (rank 15, 0.27); GAMMA_C enters
+(rank 11). No parameter is dead in the propagation audit, but BETA_C and GAMMA_C only move
+calibration error.
