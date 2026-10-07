@@ -43,7 +43,7 @@ PROBLEM = {
         [0.006, 0.015],   # BETA_C
         [0.030, 0.070],   # GAMMA_C
         [0.100, 0.900],   # RHO_RATIO
-        [0.005, 0.012],   # LAMBDA_A
+        [0.0007, 0.0059], # LAMBDA_A (10 to 35 percent decline bracket, Gate 1)
         [0.020, 0.200],   # ETA
         [0.010, 0.100],   # ETA_SELF
         [0.020, 0.250],   # KAPPA
