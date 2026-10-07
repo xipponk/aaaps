@@ -32,7 +32,7 @@ OUT = os.path.join(PROJECT_ROOT, "outputs", "phase1")
 
 def check_b(n_seeds: int = 200) -> dict:
     rs = []
-    for seed in range(n_seeds):
+    for seed in range(5000, 5000 + n_seeds):
         m = AaapsModel(n_students=P.N_STUDENTS, scenario="free_market", seed=seed)
         a = np.array([x.base_ability for x in m.agents])
         s = np.array([x.self_regulation for x in m.agents])

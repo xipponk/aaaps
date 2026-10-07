@@ -33,8 +33,8 @@ import config.params as P
 from analysis.manifest import write_manifest
 from analysis.run_production import _run_one
 
-SEEDS = list(range(1000, 1010))
-GRID = [0.0005, 0.001, 0.002, 0.003, 0.004, 0.006, 0.008, 0.012]
+SEEDS = list(range(1000, 1030))
+GRID = [0.0007, 0.0012, 0.0016, 0.002, 0.0025, 0.004, 0.0059]
 TARGETS = [0.10, 0.21, 0.35]
 SCENARIOS6 = ["baseline", "free_market", "mixed_policy", "targeted_subsidy",
               "universal_access", "universal_permanent"]

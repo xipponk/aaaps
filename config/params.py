@@ -51,7 +51,7 @@ ABILITY_CLAMP: Final[tuple[float, float]] = (10.0, 100.0)  # [F]
 # Self-Regulation & Traits
 # =============================================================================
 
-SR_ABILITY_WEIGHT: Final[float] = 0.45     # [K] Correlation with ability
+SR_ABILITY_WEIGHT: Final[float] = 0.34     # [K] Chosen so realized corr(ability, self-regulation) = 0.299 (200 seeds), matching paper r_AS = 0.30; 0.45 realized 0.386
 SR_NOISE_WEIGHT: Final[float] = 0.55       # [K]
 CONFORMITY_BETA_A: Final[float] = 2.0      # [F] Trait distribution for norm conformity ~ Beta(2,5)
 CONFORMITY_BETA_B: Final[float] = 5.0      # [F]
