@@ -35,6 +35,8 @@ CONDITIONS = {
     "no_market": dict(disabled_submodels=frozenset({"market"})),
     "none_net": dict(disabled_submodels=frozenset({"norms", "aspiration", "market"})),
     "zero_interaction": dict(zero_interaction_mode=True),
+    # peer influence only: ETA = 0 removes diffusion, ETA_SELF (self-use reinforcement) stays
+    "no_peer_norms": dict(params={"ETA": 0.0}),
 }
 OUTCOMES = ["mean_dependency", "mean_calibration_error", "mean_retained_ability", "mean_score",
             "mean_legitimacy"]
@@ -43,7 +45,16 @@ OUT = os.path.join(PROJECT_ROOT, "outputs", "phase2")
 
 def _job(args):
     cond, seed = args
-    m = run_free_market(seed=seed, n_students=P.N_STUDENTS, **CONDITIONS[cond])
+    kw = dict(CONDITIONS[cond])
+    overrides = kw.pop("params", {})
+    saved = {k: getattr(P, k) for k in overrides}
+    try:
+        for k, v in overrides.items():
+            setattr(P, k, v)
+        m = run_free_market(seed=seed, n_students=P.N_STUDENTS, **kw)
+    finally:
+        for k, v in saved.items():
+            setattr(P, k, v)
     r = _compute_metrics(m)
     r.update(condition=cond, seed=seed)
     return r
@@ -60,8 +71,11 @@ def paired_effect(x, y, rng):
 
 
 def main():
+    """Optional argv: condition names to (re)run; other conditions are kept from the saved CSV."""
+    only = sys.argv[1:]
     os.makedirs(OUT, exist_ok=True)
-    jobs = [(c, s) for c in CONDITIONS for s in SEEDS]
+    path = os.path.join(OUT, "interaction_isolation_runs.csv")
+    jobs = [(c, s) for c in (only or CONDITIONS) for s in SEEDS]
     t0, rows = time.time(), []
     with ProcessPoolExecutor(max_workers=14) as ex:
         for i, r in enumerate(ex.map(_job, jobs), 1):
@@ -69,7 +83,9 @@ def main():
             if i % 50 == 0 or i == len(jobs):
                 print(f"[isolation] {i}/{len(jobs)} {i / (time.time() - t0):.2f} runs/s", flush=True)
     df = pd.DataFrame(rows)
-    path = os.path.join(OUT, "interaction_isolation_runs.csv")
+    if only:
+        old = pd.read_csv(path)
+        df = pd.concat([old[~old.condition.isin(only)], df], ignore_index=True)
     df.to_csv(path, index=False)
     print(f"OUTPUT: {os.path.abspath(path)} shape={df.shape} steps={P.TOTAL_STEPS}")
     rng = np.random.default_rng(20261008)

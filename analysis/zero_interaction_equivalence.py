@@ -14,10 +14,16 @@ PRE-DECLARED BEFORE ANY RUN (committed before the first execution; see git histo
                distribution check, not a decision rule.
   Decision   : equivalent only if BOTH metrics pass TOST. If not, report failure and the
                structural reason. Never call the result "within stochastic bounds" without it.
+
+POST HOC ABLATION (added after the primary test failed, exploratory, same margin and tests):
+  python -m analysis.zero_interaction_equivalence --lambda-a 0 --tag ablation_lambda0
+  repeats the comparison with ability erosion switched off (LAMBDA_A = 0). It does not replace
+  the primary test.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -32,6 +38,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+import config.params as P
 from analysis.manifest import write_manifest
 from scenarios.free_market import run as run_free_market
 
@@ -44,7 +51,10 @@ OUT = os.path.join(PROJECT_ROOT, "outputs", "phase2")
 METRICS = ["score_total", "deadline_miss_count"]
 
 
-def _run(seed):
+def _run(args):
+    seed, lam = args
+    if lam is not None:
+        P.LAMBDA_A = lam
     m = run_free_market(seed=seed, n_students=N, zero_interaction_mode=True)
     df = m.datacollector.get_agent_vars_dataframe().xs(960, level="Step").reset_index()
     df.insert(0, "seed", seed)
@@ -63,12 +73,17 @@ def tost_welch(x, y, margin_abs):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--lambda-a", type=float, default=None)
+    ap.add_argument("--tag", default="")
+    args = ap.parse_args()
+    sfx = f"_{args.tag}" if args.tag else ""
     os.makedirs(OUT, exist_ok=True)
     t0 = time.time()
     with ProcessPoolExecutor(max_workers=14) as ex:
-        parts = list(ex.map(_run, SEEDS))
+        parts = list(ex.map(_run, [(sd, args.lambda_a) for sd in SEEDS]))
     v04 = pd.concat(parts, ignore_index=True)
-    v04_path = os.path.join(OUT, "zero_interaction_v04_N60_final_step.csv")
+    v04_path = os.path.join(OUT, f"zero_interaction_v04_N60_final_step{sfx}.csv")
     v04.to_csv(v04_path, index=False)
     v02 = pd.read_csv(REF)
     print(f"v0.2 REFERENCE: {os.path.abspath(REF)} shape={v02.shape} Step max={v02['step'].max()}")
@@ -93,11 +108,12 @@ def main():
         print(json.dumps({m: res[m]}, indent=2))
     res["overall_equivalent"] = all(res[m]["equivalent"] for m in METRICS)
     print("OVERALL EQUIVALENT (both metrics):", res["overall_equivalent"])
-    with open(os.path.join(OUT, "zero_interaction_equivalence.json"), "w") as f:
+    with open(os.path.join(OUT, f"zero_interaction_equivalence{sfx}.json"), "w") as f:
         json.dump(res, f, indent=2)
-    write_manifest(os.path.join(OUT, "zero_interaction_manifest.json"), stage="zero_interaction",
+    write_manifest(os.path.join(OUT, f"zero_interaction_manifest{sfx}.json"), stage="zero_interaction",
                    seeds=SEEDS, n_students=N, scenario="free_market", sampler="none",
-                   margin=MARGIN, alpha=ALPHA, reference=os.path.abspath(REF))
+                   margin=MARGIN, alpha=ALPHA, reference=os.path.abspath(REF),
+                   lambda_a_override=args.lambda_a)
 
 
 if __name__ == "__main__":
