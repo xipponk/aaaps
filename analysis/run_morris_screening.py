@@ -7,6 +7,10 @@ per-metric normalized mu_star) so a parameter influential on ANY metric is retai
 
 Uses the fixed parameter-binding codebase (``from config import params as P``) and the
 12-metric evaluation identical to run_sobol.py.
+
+v0.4: every design point is the mean of MORRIS_SEEDS (3 seeds disjoint from the production,
+calibration and spec-check seeds); all per-seed metrics are saved; outputs go to outputs/phase2/
+so the v0.3 files in outputs/ are never overwritten.
 """
 
 from __future__ import annotations
@@ -26,6 +30,10 @@ if PROJECT_ROOT not in sys.path:
 
 from scenarios.free_market import run as run_free_market
 import config.params as P
+from analysis.manifest import write_manifest
+
+MORRIS_SEEDS = (2000, 2001, 2002)
+OUT_DIR = os.path.join(PROJECT_ROOT, "outputs", "phase2")
 
 # 23 candidate parameters
 PROBLEM = {
@@ -73,7 +81,7 @@ METRICS = [
 ]
 
 
-def _worker_eval(idx_sample: tuple[int, np.ndarray]) -> tuple[int, dict[str, float]]:
+def _worker_eval(idx_sample: tuple[int, np.ndarray], seed: int = 42) -> tuple[int, dict[str, float]]:
     idx, param_values = idx_sample
     (
         alpha_d, delta_d, beta_c, gamma_c, rho_ratio, lambda_a,
@@ -107,7 +115,7 @@ def _worker_eval(idx_sample: tuple[int, np.ndarray]) -> tuple[int, dict[str, flo
     P.SHAREABLE_SEATS[3] = int(round(share_seats_t3))
     P.PROCESSING_DIFFICULTY_FACTOR = float(proc_factor)
 
-    model = run_free_market(seed=42, n_students=240)
+    model = run_free_market(seed=seed, n_students=240)
     df = model.datacollector.get_agent_vars_dataframe().xs(960, level="Step")
 
     scores = df['score_total'].values
@@ -140,29 +148,42 @@ def _worker_eval(idx_sample: tuple[int, np.ndarray]) -> tuple[int, dict[str, flo
     return idx, res
 
 
+def _task(args):
+    idx, vec, seed = args
+    _, res = _worker_eval((idx, vec), seed=seed)
+    res.update(design_idx=idx, seed=seed)
+    return res
+
+
 def run_morris():
     print("=" * 79)
     print("Morris Screening (23 params, 12 metrics, fixed codebase)")
     print("=" * 79)
 
-    r = 20
+    r = int(os.environ.get("MORRIS_R", "20"))
     param_samples = morris_sample.sample(PROBLEM, N=r, num_levels=4, seed=42)
     num_evals = len(param_samples)
     print(f"Generated {num_evals} samples (r={r}, D={PROBLEM['num_vars']}).")
 
     t0 = time.time()
-    results_dict = {}
+    tasks = [(i, v, sd) for i, v in enumerate(param_samples) for sd in MORRIS_SEEDS]
+    raw = []
     with ProcessPoolExecutor(max_workers=14) as executor:
-        futures = [executor.submit(_worker_eval, (i, s)) for i, s in enumerate(param_samples)]
-        for fut in as_completed(futures):
-            idx, res = fut.result()
-            results_dict[idx] = res
+        futures = [executor.submit(_task, t) for t in tasks]
+        for k, fut in enumerate(as_completed(futures), 1):
+            raw.append(fut.result())
+            if k % 100 == 0 or k == len(tasks):
+                print(f"[morris] {k}/{len(tasks)} {k / (time.time() - t0):.2f} runs/s", flush=True)
 
     elapsed = time.time() - t0
-    print(f"[DONE] {num_evals} evals in {elapsed:.1f}s ({elapsed/60.0:.1f} min).")
+    print(f"[DONE] {len(tasks)} runs ({num_evals} design points x {len(MORRIS_SEEDS)} seeds) in {elapsed:.1f}s ({elapsed/60.0:.1f} min).")
 
-    ordered = [results_dict[i] for i in range(num_evals)]
-    res_df = pd.DataFrame(ordered)
+    raw_df = pd.DataFrame(raw).sort_values(["design_idx", "seed"]).reset_index(drop=True)
+    os.makedirs(OUT_DIR, exist_ok=True)
+    pcols = pd.DataFrame(param_samples, columns=PROBLEM['names'])
+    raw_df.merge(pcols, left_on="design_idx", right_index=True).to_csv(
+        os.path.join(OUT_DIR, "morris_v04_runs_raw.csv"), index=False)
+    res_df = raw_df.groupby("design_idx")[METRICS].mean().sort_index().reset_index(drop=True)
 
     # Morris analysis per metric
     analysis = {}
@@ -173,7 +194,8 @@ def run_morris():
             continue
         si = morris_analyze.analyze(PROBLEM, param_samples, res_df[metric].values,
                                     print_to_console=False)
-        analysis[metric] = {'mu_star': np.array(si['mu_star']), 'sigma': np.array(si['sigma'])}
+        analysis[metric] = {'mu_star': np.array(si['mu_star']), 'sigma': np.array(si['sigma']),
+                            'conf': np.array(si['mu_star_conf'])}
 
     # Build full results table
     records = []
@@ -183,12 +205,12 @@ def run_morris():
             rec[f"{metric}_mu_star"] = float(analysis[metric]['mu_star'][i])
             if 'sigma' in analysis[metric]:
                 rec[f"{metric}_sigma"] = float(analysis[metric]['sigma'][i])
+                rec[f"{metric}_mu_star_conf"] = float(analysis[metric]['conf'][i])
         records.append(rec)
     morris_df = pd.DataFrame(records)
 
-    out_dir = os.path.join(PROJECT_ROOT, "outputs")
-    os.makedirs(out_dir, exist_ok=True)
-    morris_df.to_csv(os.path.join(out_dir, "morris_results.csv"), index=False)
+    out_dir = OUT_DIR
+    morris_df.to_csv(os.path.join(out_dir, "morris_v04_results.csv"), index=False)
 
     # Composite ranking: normalize mu_star per metric column by its max, take max across metrics
     norm = morris_df[[f"{m}_mu_star" for m in METRICS]].copy()
@@ -203,8 +225,12 @@ def run_morris():
     print("\n=== Composite Ranking (max normalized mu_star across 12 metrics) ===")
     print(morris_df[['parameter', 'composite_max']].to_string(index=False))
 
-    morris_df.to_csv(os.path.join(out_dir, "morris_results_ranked.csv"), index=False)
-    print(f"\nSaved: outputs/morris_results.csv and outputs/morris_results_ranked.csv")
+    morris_df.to_csv(os.path.join(out_dir, "morris_v04_results_ranked.csv"), index=False)
+    print("\nSaved: outputs/phase2/morris_v04_results.csv and morris_v04_results_ranked.csv")
+    write_manifest(os.path.join(out_dir, "morris_v04_manifest.json"), stage="morris",
+                   seeds=list(MORRIS_SEEDS), n_students=240, scenario="free_market",
+                   sampler=f"SALib.sample.morris r={r} num_levels=4 seed=42", bounds=PROBLEM['bounds'],
+                   names=PROBLEM['names'], num_design_points=num_evals)
 
 
 if __name__ == "__main__":
