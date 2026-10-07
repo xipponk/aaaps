@@ -317,6 +317,14 @@ class StudentAgent(mesa.Agent):
         self.calibration_error = float(np.clip(c_next, 0.0, 1.0))
 
         # 3. Retained Ability a_r
+        # Erosion  = LAMBDA_A * d * u * a_r        (points/day, proportional to current ability)
+        # Recovery = rho * (1 - u) * (a_base - a_r) (points/day, proportional to the gap)
+        # Both coefficients are per-day rates and both multiply a quantity in ability points,
+        # so they are comparable. rho = RHO_RATIO * LAMBDA_A with RHO_RATIO < 1, so the peak
+        # recovery coefficient (u = 0) is below the peak erosion coefficient (d = u = 1).
+        # This is a statement about peak rates only: on a low-use day (small u, d still high)
+        # the instantaneous recovery coefficient can exceed the erosion coefficient.
         practice = 1.0 - daily_u
-        a_next = self.retained_ability + P.RHO_AS * practice * (self.base_ability - self.retained_ability) - P.LAMBDA_A * self.dependency * daily_u * self.retained_ability
-        self.retained_ability = float(np.clip(a_next, 10.0, self.base_ability))
+        rho = P.RHO_RATIO * P.LAMBDA_A
+        a_next = self.retained_ability + rho * practice * (self.base_ability - self.retained_ability) - P.LAMBDA_A * self.dependency * daily_u * self.retained_ability
+        self.retained_ability = float(np.clip(a_next, P.ABILITY_CLAMP[0], self.base_ability))

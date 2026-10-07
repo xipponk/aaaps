@@ -31,7 +31,7 @@ import config.params as P
 PROBLEM = {
     'num_vars': 23,
     'names': [
-        'ALPHA_D', 'DELTA_D', 'BETA_C', 'GAMMA_C', 'RHO_AS', 'LAMBDA_A',
+        'ALPHA_D', 'DELTA_D', 'BETA_C', 'GAMMA_C', 'RHO_RATIO', 'LAMBDA_A',
         'ETA', 'ETA_SELF', 'KAPPA', 'URGENCY_WEIGHT', 'ASPIRATION_GAP_WEIGHT',
         'BORROW_SUBSTITUTION', 'ABILITY_MEAN', 'ABILITY_STD', 'CONFORMITY_BETA_B',
         'PROSOCIALITY_BETA_A', 'SBM_P_WITHIN', 'SBM_P_BETWEEN', 'HOMOPHILY_SES',
@@ -42,7 +42,7 @@ PROBLEM = {
         [0.003, 0.008],   # DELTA_D
         [0.006, 0.015],   # BETA_C
         [0.030, 0.070],   # GAMMA_C
-        [0.110, 0.550],   # RHO_AS
+        [0.100, 0.900],   # RHO_RATIO
         [0.005, 0.012],   # LAMBDA_A
         [0.020, 0.200],   # ETA
         [0.010, 0.100],   # ETA_SELF
@@ -76,7 +76,7 @@ METRICS = [
 def _worker_eval(idx_sample: tuple[int, np.ndarray]) -> tuple[int, dict[str, float]]:
     idx, param_values = idx_sample
     (
-        alpha_d, delta_d, beta_c, gamma_c, rho_as, lambda_a,
+        alpha_d, delta_d, beta_c, gamma_c, rho_ratio, lambda_a,
         eta, eta_self, kappa, urgency_w, asp_gap_w,
         borrow_sub, ab_mean, ab_std, conf_beta_b,
         prosocial_beta_a, p_within, p_between, h_ses,
@@ -87,7 +87,7 @@ def _worker_eval(idx_sample: tuple[int, np.ndarray]) -> tuple[int, dict[str, flo
     P.DELTA_D = float(delta_d)
     P.BETA_C = float(beta_c)
     P.GAMMA_C = float(gamma_c)
-    P.RHO_AS = float(rho_as)
+    P.RHO_RATIO = float(rho_ratio)
     P.LAMBDA_A = float(lambda_a)
     P.ETA = float(eta)
     P.ETA_SELF = float(eta_self)

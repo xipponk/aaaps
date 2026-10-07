@@ -146,8 +146,8 @@ ALPHA_D: Final[float] = 0.012             # [C] Dependency growth rate when usin
 DELTA_D: Final[float] = 0.005             # [C] Dependency decay rate when not using AI
 BETA_C: Final[float] = 0.010              # [C] Calibration error growth rate with dependency
 GAMMA_C: Final[float] = 0.050             # [C] Calibration error recovery rate with surprise
-RHO_AS: Final[float] = 0.30               # [K] Practice recovery rate (~0.30 per ODD §6)
-LAMBDA_A: Final[float] = 0.008            # [C] Ability erosion rate per AI usage under dependency
+RHO_RATIO: Final[float] = 0.50            # [F] Recovery rate relative to erosion: rho = RHO_RATIO * LAMBDA_A (GSA range 0.1-0.9)
+LAMBDA_A: Final[float] = 0.008            # [C] Ability erosion rate per AI usage under dependency (PROVISIONAL, recalibrated at Gate 1)
 
 # =============================================================================
 # Interaction Parameters (ODD §7.7-7.9)
