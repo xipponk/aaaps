@@ -199,3 +199,45 @@ removed PROSOCIALITY_BETA_A falls from 0.88 to 0.39 (rank 13) and P_VISIBLE stay
 through mean_legitimacy. The network parameters (SBM_P_BETWEEN, SBM_P_WITHIN, HOMOPHILY_SES,
 HOMOPHILY_ABILITY) are at the bottom of the table (0.04 to 0.08), together with KAPPA,
 BORROW_SUBSTITUTION and SHAREABLE_SEATS_TIER3.
+
+## GSA: Sobol variance decomposition, v0.4 (S1 and ST)
+Design: 12 parameters (Gate 2 set), SALib.sample.sobol (scrambled, seed 20261009),
+calc_second_order = False, N = 512, so 7,168 design points per scenario, bootstrap CIs with 1,000
+resamples (95 percent). Scenarios: free_market and targeted_subsidy, 100 percent of runs completed, no NaN, all
+sanity checks passed (sum S1 within [-0.1, 1.15], ST not below S1 beyond CI). Manifests: git 6b18c2a
+(clean), .venv python 3.11, SALib 1.5.2. Files: outputs/phase2/sobol_v04_<scenario>_runs.csv
+(7,168 rows each), _indices.csv, _manifest.json.
+LIMITATION: ONE seed (3000) per design point, not three. Three seeds would take about 10.3 hours per
+scenario (20.6 hours in total, above the 12-hour limit set at Gate 2). With one fixed seed the output
+is a deterministic function of the parameters, so the indices describe sensitivity of that realisation
+(including its fixed random draws), not an average over stochastic replicates. Metrics saved: the
+original 12 plus relative_ability_decline. ai_adoption_rate has no variance in free_market and is
+reported as degenerate.
+Largest bootstrap half-width: 0.12 (S1 and ST, both scenarios); ST values within about 0.1 of each other are not distinguishable.
+
+Total-order indices (ST) of the leading parameters, free_market / targeted_subsidy:
+- mean_score: ABILITY_MEAN 0.56 / 0.53, PROCESSING_DIFFICULTY_FACTOR 0.39 / 0.40, ABILITY_STD 0.03 / 0.03,
+  LAMBDA_A 0.01 / 0.04. Everything else is below 0.01.
+- std_score: ABILITY_STD 0.43 / 0.44, ABILITY_MEAN 0.40 / 0.37, PROCESSING_DIFFICULTY_FACTOR 0.17 / 0.19.
+- gini_score: ABILITY_MEAN 0.53 / 0.50, PROCESSING_DIFFICULTY_FACTOR 0.27 / 0.29, ABILITY_STD 0.23 / 0.22.
+- deadline_miss_count: PROCESSING_DIFFICULTY_FACTOR 0.64 / 0.63, ABILITY_MEAN 0.32 / 0.23,
+  LAMBDA_A 0.04 / 0.12.
+- mean_dependency: DELTA_D 0.41 / 0.47, ALPHA_D 0.23 / 0.27, ETA_SELF 0.19 / 0.11, ETA 0.14 / 0.08.
+- mean_calibration_error: BETA_C 0.62 / 0.64, GAMMA_C 0.13 / 0.13, DELTA_D 0.11 / 0.11, ALPHA_D 0.09 / 0.10.
+- relative_ability_decline: LAMBDA_A 0.54 / 0.59, RHO_RATIO 0.16 / 0.18, ETA_SELF 0.14 / 0.09,
+  ETA 0.11 / 0.06; the dependency parameters contribute about 0.03 to 0.04 each.
+- mean_legitimacy: ETA_SELF 0.36 / 0.37, P_VISIBLE 0.33 / 0.31, ETA 0.30 / 0.31.
+- Interaction share (sum ST minus sum S1) is small for the main metrics (0.01 to 0.2); the exception is
+  borrowing_agent_count (sum S1 0.25 and 0.00, sum ST 4.05 and 7.45, with P_VISIBLE ST = 1.02 in
+  targeted_subsidy, which is above the theoretical maximum of 1). Those indices are not reliable
+  estimates: the metric is a small noisy count and a single seed is used. Do not interpret the
+  borrowing and shared-seat indices. They are kept only because Gate 2 asked for them as outputs.
+Parameter notes: BETA_C and GAMMA_C influence only mean_calibration_error (ST 0.000 on every other metric).
+The two recovery parameters matter for ability only through relative_ability_decline; in the absolute
+mean_retained_ability the leading parameter is ABILITY_MEAN (ST 0.85 / 0.63) and LAMBDA_A is 0.08 / 0.22.
+The two scenarios rank parameters almost identically for every metric except those involving
+ability erosion (LAMBDA_A gains weight in targeted_subsidy: score 0.01 to 0.04, misses 0.04 to 0.12,
+decline 0.54 to 0.59) and legitimacy-driven ETA and ETA_SELF (weaker for dependency and decline in
+targeted_subsidy). P_VISIBLE and PROSOCIALITY_BETA_A earned high Morris scores mostly through the
+borrowing noise (see the Morris section); P_VISIBLE retains a real effect on mean_legitimacy only.
+Network parameters (SBM_P_BETWEEN, SBM_P_WITHIN, HOMOPHILY_SES, HOMOPHILY_ABILITY) sit at the bottom of the Morris table and were not in the Sobol set. Narrative interpretation waits for Gate 3.
