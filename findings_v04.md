@@ -149,3 +149,53 @@ ABILITY_MEAN, which hides LAMBDA_A and RHO_RATIO (a relative-decline metric woul
 v0.3 Sobol set (12 parameters) vs v0.4 top 12: SBM_P_BETWEEN drops out (rank 15, 0.27); GAMMA_C enters
 (rank 11). No parameter is dead in the propagation audit, but BETA_C and GAMMA_C only move
 calibration error.
+
+### Production rerun after the scenario-override fix (SUPERSEDES the production numbers and the (a),(b) contrasts above)
+Fix: the access policy now runs in Phase A after the monthly tier re-evaluation (commit "fix(model):
+scenario access policy runs in Phase A"). In v0.3 and in the first v0.4 production run it was a
+post-step override, so every agent processed (and could borrow in) the first step of each month at
+its re-evaluated tier. free_market and mixed_policy are bit-identical to the previous run (all 100
+seeds); the others changed only slightly. The old files are kept as production_v04_prefix_*.csv.
+Checks: baseline dependency is exactly 0.0 in all 100 seeds, baseline ever_borrowed 0, universal
+permanent ever_borrowed 0 and borrowers 0 in all seeds.
+100 seeds, measured values (decline is MEASURED; 21 percent was only the calibration target for permanent universal):
+| scenario | decline | score | gini | dependency | calib. error | misses | legitimacy | borrowers | ever borrowed |
+| baseline | 0.0% | 31,477 | 0.1235 | 0.000 | 0.000 | 16.66 | 0.000 | 0.0 | 0.0 |
+| mixed_policy | 5.2% | 32,103 | 0.1250 | 0.182 | 0.347 | 17.85 | 0.369 | 16.0 | 98.7 |
+| free_market | 9.9% | 32,265 | 0.1250 | 0.241 | 0.380 | 17.31 | 0.410 | 19.7 | 114.1 |
+| targeted_subsidy | 17.2% | 32,548 | 0.1246 | 0.411 | 0.646 | 18.00 | 0.641 | 23.7 | 202.3 |
+| universal temporary | 17.1% | 33,670 | 0.1191 | 0.376 | 0.864 | 18.52 | 0.547 | 33.4 | 208.5 |
+| universal permanent | 20.7% | 35,339 | 0.1105 | 0.539 | 0.891 | 18.26 | 0.801 | 0.0 | 0.0 |
+Change versus the previous run (new minus old): baseline score -11.6, gini -0.0002, misses +0.02;
+targeted_subsidy score +10.8, misses -0.03; universal temporary score +27.5, misses +0.06;
+universal permanent score +70.7, misses +0.06, ever borrowed -199.1; decline changes at most
+0.0007. No headline changes.
+Recomputed contrasts (paired by seed, bootstrap 95 percent CI):
+(a) deadline misses minus baseline (16.66): free_market +0.65 (0.55 to 0.75), mixed_policy +1.19
+    (1.09 to 1.30), targeted_subsidy +1.34 (1.20 to 1.49), universal temporary +1.86 (1.72 to
+    2.01), universal permanent +1.60 (1.43 to 1.78).
+(b) gini minus baseline (0.1235): free_market +0.0016 (0.0011 to 0.0020), mixed_policy +0.0015
+    (0.0012 to 0.0018), targeted_subsidy +0.0012 (0.0007 to 0.0017); universal temporary -0.0044,
+    universal permanent -0.0130.
+(c) unchanged: free_market is identical to the earlier run, so the market null result stands.
+No narrative interpretation until after Gate 3.
+
+### Morris recomputed at Gate 2 (outputs/phase2/morris_v04_composite_v2.csv)
+Rule fixed before computing: composite over mean_score, std_score, gini_score, mean_dependency,
+mean_calibration_error, relative_ability_decline, deadline_miss_count, mean_legitimacy; retained
+set = top 10 plus LAMBDA_A and RHO_RATIO forced, filled to D = 12. relative_ability_decline was
+rebuilt from the saved runs (mean base ability reproduced exactly for three validation runs).
+Ranking: DELTA_D 1.00, BETA_C 1.00, LAMBDA_A 1.00, PROCESSING_DIFFICULTY_FACTOR 1.00, ABILITY_STD 1.00,
+ABILITY_MEAN 1.00, ETA_SELF 1.00, P_VISIBLE 0.91, ETA 0.84, ALPHA_D 0.74, RHO_RATIO 0.59, GAMMA_C 0.43,
+PROSOCIALITY_BETA_A 0.39, CONFORMITY_BETA_B 0.34, ASPIRATION_GAP_WEIGHT 0.30, URGENCY_WEIGHT 0.09,
+SBM_P_BETWEEN 0.08, SBM_P_WITHIN 0.08, HOMOPHILY_SES 0.08, HOMOPHILY_ABILITY 0.04,
+BORROW_SUBSTITUTION 0.02, KAPPA 0.02, SHAREABLE_SEATS_TIER3 0.01.
+Retained 12: DELTA_D, BETA_C, LAMBDA_A, PROCESSING_DIFFICULTY_FACTOR, ABILITY_STD, ABILITY_MEAN,
+ETA_SELF, P_VISIBLE, ETA, ALPHA_D, RHO_RATIO (rank 11, forced), GAMMA_C (rank 12 fill). Differs from
+option A by 2 parameters and from option B by 1.
+P_VISIBLE and PROSOCIALITY_BETA_A scored high in the first ranking mainly through the borrowing
+metrics, which behave like noise (every parameter scored 0.14 to 0.28 there). With borrowing
+removed PROSOCIALITY_BETA_A falls from 0.88 to 0.39 (rank 13) and P_VISIBLE stays high (0.91) only
+through mean_legitimacy. The network parameters (SBM_P_BETWEEN, SBM_P_WITHIN, HOMOPHILY_SES,
+HOMOPHILY_ABILITY) are at the bottom of the table (0.04 to 0.08), together with KAPPA,
+BORROW_SUBSTITUTION and SHAREABLE_SEATS_TIER3.
