@@ -11,11 +11,9 @@ Scenarios (ODD §5.5):
   - mixed_policy      : free_market but stricter course AI limits (C1+C3 no AI)
   - targeted_subsidy  : free_market but low-SES students subsidised to min tier 2
 
-Assumption noted: scenario tier policy is enforced via a post-step override (after each
-model.step()), so it wins over the monthly _reconsider_ai_tier() in Phase A. On the
-monthly-boundary step itself, the agent processes that one step at the monthly re-evaluated
-tier before the override re-applies; ~1 step per 30 is affected (~3%), acceptable for the
-results table and flagged here for transparency.
+v0.4: the scenario tier policy now lives in AaapsModel._apply_scenario_policy and runs in
+Phase A after the monthly tier re-evaluation. In v0.3 it was a post-step override, which let
+every agent process (and borrow in) the first step of each month at its re-evaluated tier.
 """
 
 from __future__ import annotations
@@ -45,35 +43,6 @@ METRICS = [
     'deadline_miss_rate', 'ai_adoption_rate', 'mean_legitimacy',
     'borrowing_agent_count', 'total_shared_seats_lent',
 ]
-
-
-def _apply_scenario_policy(model: AaapsModel, scenario: str) -> None:
-    """Enforce the scenario's AI-access policy on all agents (post-step override)."""
-    if scenario == "baseline":
-        for a in model.agents:
-            a.ai_tier = 0
-            a.ai_tier_effective = 0
-    elif scenario == "universal_access":
-        # Temporary universal access (ODD §5.5): free tier 3 for semesters 1-4
-        # (steps 1-480), then withdrawn. From semester 5 (step 481) onward the
-        # override stops and agents revert to their own §7.6 budget/WTP tier
-        # decisions via _reconsider_ai_tier().
-        if model.current_step <= 480:
-            for a in model.agents:
-                a.ai_tier = 3
-                a.ai_tier_effective = 3
-        # else: no override — _reconsider_ai_tier() governs from semester 5 onward
-    elif scenario == "universal_permanent":
-        # Permanent universal access: free tier 3 for everyone in every step
-        for a in model.agents:
-            a.ai_tier = 3
-            a.ai_tier_effective = 3
-    elif scenario == "targeted_subsidy":
-        for a in model.agents:
-            if a.SES == "low" and a.ai_tier < 2:
-                a.ai_tier = 2
-                a.ai_tier_effective = 2
-    # free_market and mixed_policy: no tier override (budget/WTP-based)
 
 
 def _compute_metrics(model: AaapsModel) -> dict[str, float]:
@@ -132,11 +101,10 @@ def _simulate(scenario: str, seed: int) -> AaapsModel:
                 a.ai_tier = 1
             a.ai_tier_effective = a.ai_tier
 
-        _apply_scenario_policy(model, scenario)
-
+        # The scenario access policy is enforced inside the model (Phase A, after the monthly
+        # tier re-evaluation); see AaapsModel._apply_scenario_policy.
         for _ in range(TOTAL_STEPS):
             model.step()
-            _apply_scenario_policy(model, scenario)
 
         return model
     finally:

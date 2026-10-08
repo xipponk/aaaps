@@ -176,6 +176,10 @@ class AaapsModel(mesa.Model):
                     # Monthly tier-purchase re-evaluation (ODD §7.6)
                     a._reconsider_ai_tier()
 
+        # Scenario access policy runs after the tier re-evaluation and before Phases B and C,
+        # so no step is ever processed at a tier the policy would have overridden.
+        self._apply_scenario_policy()
+
         task_id_counter = self.current_step * 1000
         for a in self.agents:
             if not isinstance(a, StudentAgent):
@@ -217,6 +221,33 @@ class AaapsModel(mesa.Model):
                 incoming.append(task)
 
             a._incoming_tasks = incoming
+
+    def _apply_scenario_policy(self) -> None:
+        """Enforce the scenario's AI-access policy (ODD §5.5). Runs in Phase A of every step.
+
+        baseline            : no AI access
+        universal_access    : free tier 3 in steps 1-480 (semesters 1-4), then agents revert to
+                              their own budget/WTP tier decisions
+        universal_permanent : free tier 3 in all steps
+        targeted_subsidy    : low-SES students get at least tier 2
+        free_market, mixed_policy and any other name: no tier override (mixed_policy changes the
+        course AI rules instead, set by the scenario runner).
+        """
+        sc = self.scenario
+        agents = [a for a in self.agents if isinstance(a, StudentAgent)]
+        if sc == "baseline":
+            for a in agents:
+                a.ai_tier = 0
+                a.ai_tier_effective = 0
+        elif sc == "universal_permanent" or (sc == "universal_access" and self.current_step <= 480):
+            for a in agents:
+                a.ai_tier = 3
+                a.ai_tier_effective = 3
+        elif sc == "targeted_subsidy":
+            for a in agents:
+                if a.SES == "low" and a.ai_tier < 2:
+                    a.ai_tier = 2
+                    a.ai_tier_effective = 2
 
     # -------------------------------------------------------------------------
     # Phase B: Synchronous Social Update (Submodels 7.7 - 7.9)
