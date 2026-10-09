@@ -180,3 +180,47 @@ in this repo). Reading them needs SSH to faraday, so I need Aj. Tuul to choose i
 3. Aspiration unit bug (A2): fix before the spec runs (needs recalibration of LAMBDA_A) or report as limitation?
 4. Network sweep with widened TARGET_K_BAR_RANGE: acceptable?
 5. Faraday access for Figures 1 and 3.
+
+## Step 0 audit: network fallback (Gate 4 partial approval; analysis only, no simulation)
+
+Script: analysis/network_fallback_audit.py (rebuilds agents and network from seed and parameters, no stepping).
+Output: outputs/phase2/network_fallback_audit.csv (8,738 rows, 46 networks/s, python = .venv).
+
+Generator (model/network.py): up to max_retries = 50 SBM attempts (line 39). An attempt is rejected if the graph is
+disconnected (81-82) or mean degree is outside TARGET_K_BAR_RANGE (84-87); the first accepted attempt is returned
+(93). Only after 50 rejections does it silently build an Erdos-Renyi graph with p = 8/(n-1) and no sections
+(95-105), with no log, warning or flag.
+
+Counts (fallback / networks):
+- production_v04 and isolation, seeds 0-99, default params: 0 / 100. All 6 scenarios share these networks (agents
+  and network are built before any scenario logic), so 0 of 600 production runs and 0 of the 500 networked
+  isolation runs fell back. The 200 zero_interaction/none_net isolation runs have no network by design, and the
+  zero-interaction equivalence runs (N=60) likewise.
+- calibration seeds 1000-1029: 0 / 30.
+- Morris (design points x seeds 2000-2002): 800 / 1,440 = 55.6%.
+- Sobol (same 7,168 points for free_market and targeted_subsidy, seed 3000): 824 / 7,168 = 11.5%.
+
+Why the expected "half fall back" did not happen: the per-attempt rejection rate at default is about half
+(mean 2.17 attempts, 115 k_bar rejections and 2 disconnection rejections over 100 seeds), but 50 consecutive
+failures are needed, so default fallback is essentially impossible. The retries do truncate the sample: accepted
+networks have k_bar 9.45 to 10.00 (mean 9.83), i.e. the production distribution is conditioned on k_bar <= 10.
+
+Morris: fallback fraction by quintile of SBM_P_WITHIN is 0.26, 0.88, 0.91 (Spearman 0.61 with fallback) and by
+SBM_P_BETWEEN 0.37, 0.56, 0.81 (0.36); homophily and ability parameters about 0 to 0.12. By expected degree
+39*p_within + 200*p_between: 0% fallback for 7 to 10, 72% for 10 to 11, 100% above 12 (and 40% for 5 to 6, from
+disconnection). Fallback networks have within-section edge share 0.17 versus 0.55 for SBM, so in Morris a large
+share of the SBM_P_WITHIN and SBM_P_BETWEEN design points did not test those parameters at all: they tested "no
+sections". Their low Morris rank (0.04 to 0.08) cannot be read as "network structure does not matter"; the
+parameters mostly toggle SBM versus ER, with the toggle point near k_bar = 10.
+
+Sobol: network parameters were fixed at default, and fallback is unrelated to the 12 varied parameters (|Spearman|
+<= 0.03, quartile rates 0.09 to 0.14), so it acts as seed-level noise. Fallback vs non-fallback points (free_market /
+targeted_subsidy, standardized difference): dependency +0.01 / +0.02, legitimacy -0.01 / -0.03, calibration error
+-0.03 / -0.02, gini -0.04 / -0.04 (all p > 0.2), score +0.05 / +0.05 (p about 0.15), deadline misses -0.10 / -0.09
+(p = 0.005 / 0.012), decline -0.09 / -0.08 (p = 0.017 / 0.033). Small, but present for misses and decline; the Sobol
+indices for those two metrics carry this extra noise. Sobol with one seed also means 11.5% of points used a graph
+that is not the model's intended network.
+
+Consequences to carry into v0.4.1: (1) production and isolation are clean; (2) Morris network-parameter ranks and
+the "network parameters are least important" statement are not valid as stated; (3) Sobol is mildly affected;
+(4) the network sweep proposed in C7 would hit the same wall unless the range is widened and fallback is made loud.
