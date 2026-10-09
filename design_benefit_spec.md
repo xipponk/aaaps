@@ -198,7 +198,7 @@ Counts (fallback / networks):
   zero-interaction equivalence runs (N=60) likewise.
 - calibration seeds 1000-1029: 0 / 30.
 - Morris (design points x seeds 2000-2002): 800 / 1,440 = 55.6%.
-- Sobol (same 7,168 points for free_market and targeted_subsidy, seed 3000): 824 / 7,168 = 11.5%.
+- Sobol (same 7,168 points for free_market and targeted_subsidy, seed 3000): 0 / 7,168 (corrected, see below).
 
 Why the expected "half fall back" did not happen: the per-attempt rejection rate at default is about half
 (mean 2.17 attempts, 115 k_bar rejections and 2 disconnection rejections over 100 seeds), but 50 consecutive
@@ -213,14 +213,24 @@ share of the SBM_P_WITHIN and SBM_P_BETWEEN design points did not test those par
 sections". Their low Morris rank (0.04 to 0.08) cannot be read as "network structure does not matter"; the
 parameters mostly toggle SBM versus ER, with the toggle point near k_bar = 10.
 
-Sobol: network parameters were fixed at default, and fallback is unrelated to the 12 varied parameters (|Spearman|
-<= 0.03, quartile rates 0.09 to 0.14), so it acts as seed-level noise. Fallback vs non-fallback points (free_market /
-targeted_subsidy, standardized difference): dependency +0.01 / +0.02, legitimacy -0.01 / -0.03, calibration error
--0.03 / -0.02, gini -0.04 / -0.04 (all p > 0.2), score +0.05 / +0.05 (p about 0.15), deadline misses -0.10 / -0.09
-(p = 0.005 / 0.012), decline -0.09 / -0.08 (p = 0.017 / 0.033). Small, but present for misses and decline; the Sobol
-indices for those two metrics carry this extra noise. Sobol with one seed also means 11.5% of points used a graph
-that is not the model's intended network.
+Sobol (CORRECTED, see note): 0 / 7,168 fell back. The 824 / 7,168 (11.5%) first reported was an artifact of my
+audit script: ProcessPoolExecutor workers are reused and the script did not reset config.params between jobs, so
+Sobol jobs that followed Morris jobs in the same worker inherited stale Morris network parameters. The Morris
+numbers were not affected (every Morris job sets all 22 audited parameters). Fixed by resetting every audited
+parameter to its import-time default at the start of each job; first-version output kept as
+outputs/phase2/network_fallback_audit_v1_stale_params.csv. The fallback-vs-non-fallback "quasi-experiment" on Sobol
+outputs compared an invalid label and is withdrawn.
+What actually determines the Sobol networks: seed 3000 gives np.random.default_rng(3000) (model/model.py:109),
+independent of model.random. The first SBM draw (network.py:41-43) is identical for every point and has
+k_bar about 9.8, so it is accepted on attempt 1 in 7,126 of 7,168 points (99.4%); 42 points need 3 to 8 attempts.
+Parameters enter only through agent attributes: SES (network.py:58) and base ability (network.py:69-73), via
+ABILITY_STD and ABILITY_MEAN (clamp), which change which edges are rewired and the rng consumption afterwards (SES
+draws, budgets, hobby, conformity use fixed numbers of draws because CONFORMITY and PROSOCIALITY betas are not
+varied in Sobol). Result: 1,685 distinct edge sets among 7,168 points, accepted k_bar 9.82 to 9.98. Multi-attempt
+points concentrate in the middle ABILITY_STD quintile (2.9% vs 0% elsewhere) but the numbers are tiny. So the
+Sobol runs use essentially one network realization (plus rewiring variation), one SES/budget draw, and no
+fallback. Morris, by contrast, has 518 distinct graphs in 1,440 runs, many being ER fallbacks.
 
 Consequences to carry into v0.4.1: (1) production and isolation are clean; (2) Morris network-parameter ranks and
-the "network parameters are least important" statement are not valid as stated; (3) Sobol is mildly affected;
+the "network parameters are least important" statement are not valid as stated; (3) Sobol is not affected by fallback but varies one network realization;
 (4) the network sweep proposed in C7 would hit the same wall unless the range is widened and fallback is made loud.

@@ -40,8 +40,14 @@ PARAM_COLS = ["ALPHA_D", "DELTA_D", "BETA_C", "GAMMA_C", "RHO_RATIO", "LAMBDA_A"
               "HOMOPHILY_ABILITY", "P_VISIBLE", "PROCESSING_DIFFICULTY_FACTOR"]
 
 
+DEFAULTS = {c: getattr(P, c) for c in PARAM_COLS}  # captured at import, before any worker mutates P
+
+
 def _audit_one(job: tuple) -> dict:
     source, key, seed, params = job
+    # Workers are reused across jobs, so reset every audited parameter before applying this job's values.
+    for k, v in DEFAULTS.items():
+        setattr(P, k, v)
     for k, v in params.items():
         setattr(P, k, float(v))
     log = {"sbm": 0, "conn": [], "er": 0}
@@ -70,11 +76,13 @@ def _audit_one(job: tuple) -> dict:
     edges = list(G.edges())
     within = float(np.mean([sec[u] == sec[v] for u, v in edges])) if edges else float("nan")
     fb = log["er"] > 0
+    import hashlib
+    ehash = hashlib.sha1(repr(sorted(tuple(sorted(e)) for e in edges)).encode()).hexdigest()[:12]
     attempts = log["sbm"]
     disc = sum(1 for c in log["conn"][:attempts] if not c)
     return dict(source=source, key=key, seed=seed, attempts=attempts, disconnected_rejects=disc,
                 kbar_rejects=(attempts - disc if fb else attempts - 1 - disc), fallback=fb,
-                k_bar=2 * len(edges) / 240, within_share=within)
+                k_bar=2 * len(edges) / 240, within_share=within, edge_hash=ehash)
 
 
 def jobs(smoke: bool) -> list[tuple]:
