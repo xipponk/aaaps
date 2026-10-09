@@ -40,7 +40,7 @@ PARAM_COLS = ["ALPHA_D", "DELTA_D", "BETA_C", "GAMMA_C", "RHO_RATIO", "LAMBDA_A"
               "HOMOPHILY_ABILITY", "P_VISIBLE", "PROCESSING_DIFFICULTY_FACTOR"]
 
 
-DEFAULTS = {c: getattr(P, c) for c in PARAM_COLS}  # captured at import, before any worker mutates P
+DEFAULTS = {c: getattr(P, c) for c in PARAM_COLS + ["TARGET_K_BAR_RANGE"]}  # captured at import, before any worker mutates P
 
 
 def _audit_one(job: tuple) -> dict:
@@ -49,7 +49,7 @@ def _audit_one(job: tuple) -> dict:
     for k, v in DEFAULTS.items():
         setattr(P, k, v)
     for k, v in params.items():
-        setattr(P, k, float(v))
+        setattr(P, k, tuple(v) if k == "TARGET_K_BAR_RANGE" else float(v))
     log = {"sbm": 0, "conn": [], "er": 0}
     orig = (nx.stochastic_block_model, nx.is_connected, nx.erdos_renyi_graph)
 

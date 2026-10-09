@@ -122,3 +122,11 @@ share are reported per run (v0.4.1 writes them to the manifest).
 ## Amendments
 
 (none yet)
+
+### A1 (before any k-spec run; design step 2)
+- Pivot for the k family: P1, m = sample mean of a_base at t = 0 per run; g = max(0, k*x + (1-k)*m). P2 (level-matched
+  per scenario and seed from the k = 1 run) is a sensitivity analysis for k = 0 and k = -1 in the two co-primary scenarios,
+  reported next to the co-primary result. Co-primary tests use P1.
+- k > 0 is labelled "reinforcing", never "complementarity". C1 (g_c = m*(1 - c)) is an exploratory spec off the k axis.
+- Mean g_k(t) saved at steps 1, 120, ..., 960 for every run; clip engagement counts saved.
+- Regression reference is v0.4.1 agent-level hashes, not production_v04.

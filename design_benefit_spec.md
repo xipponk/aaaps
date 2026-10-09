@@ -234,3 +234,82 @@ fallback. Morris, by contrast, has 518 distinct graphs in 1,440 runs, many being
 Consequences to carry into v0.4.1: (1) production and isolation are clean; (2) Morris network-parameter ranks and
 the "network parameters are least important" statement are not valid as stated; (3) Sobol is not affected by fallback but varies one network realization;
 (4) the network sweep proposed in C7 would hit the same wall unless the range is widened and fallback is made loud.
+
+## Revision 2 (Gate 4 reply, step 2): corrections to the spec family (design only)
+
+Diagnostics below are two single-seed v0.4 runs (seed 0, free_market and universal_permanent; trajectories of mean
+a_r and tercile dependency and calibration, no scores) and agent initialisation for seeds 0-99 (no stepping).
+
+### R2(a) Mean preservation and the pivot
+g_k = k*x + (1 - k)*m, so the population mean boost is E[g_k] = k*xbar(t) + (1 - k)*m. With a fixed pivot m and
+xbar(t) falling under erosion, every k < 1 gives a larger average boost than k = 1, and the excess grows over time.
+Diagnostic, seed 0, mean a_r/100 at steps 1, 120, 240, 480, 720, 960:
+- free_market: 0.495, 0.492, 0.486, 0.471, 0.457, 0.447 (m = 0.495). At step 960, E[g] is 0.447 (k=1), 0.495 (k=0,
+  +10.7%), 0.543 (k=-1, +21%). Time-averaged excess about +5% (k=0) and +10% (k=-1).
+- universal_permanent: 0.495, 0.489, 0.476, 0.445, 0.418, 0.396. At step 960: +25% (k=0), +50% (k=-1); time-averaged
+  about +12% and +25%.
+So the level confound is real and largest where erosion is largest. Why it matters less for E_G: at k = 0 the boost is
+the same for every agent, so a level shift raises both terciles by about the same amount and E_G barely moves; it matters
+for mean score and gini.
+Pivot options:
+- P1 (recommended, primary): m = sample mean of a_base at t = 0 in that run (static, per run, known before step 1). Removes
+  dependence on the ABILITY_MEAN parameter and on later state; no per-step renormalisation. Level difference remains and
+  is reported through a mandatory diagnostic: mean g_k(t) saved at steps 1, 120, ..., 960 for every run of every spec.
+- P2 (sensitivity): level-matched constant per (scenario, seed): m = time-average over steps of xbar(t) from that
+  scenario and seed's k = 1 run. Makes the time-averaged mean g equal to the k = 1 value for every k. It needs the k = 1 run
+  first and uses scenario output to set a spec constant; use only for k = 0 and k = -1 in the two co-primary scenarios.
+- P3 (rejected): m = current mean a_r each step, which is a per-step renormalisation and makes k a function of the
+  outcome path.
+P1 and P2 results are both reported; the preregistered co-primary test uses P1 (amendment A1 in preregistration.md).
+
+### R2(b) Bounds
+At k = -1, g = 2m - x is negative when x > 2m. With P1: sample means of a_base over 100 seeds range 47.10 to 51.93
+(mean 49.93), so 2m lies between 0.942 and 1.039. Agents with a_base > 2*mean exist in 8 of 100 seeds, at most 1 agent
+per seed; worst case g = 2*0.471 - 1.0 = -0.058, i.e. quality multiplier 1 - 0.029 u, a small penalty. With the fixed
+pivot 0.5, min g = 0.0 exactly. Proposal: g = max(0, k*x + (1-k)*m) in all specs. Cost to mean preservation: shift of
+mean g at most 0.058/240 = 0.0002 (0.05% of m) in the 8 affected seeds, none elsewhere. At k = 1, x >= 0.1 so max(0, x) = x
+and the bitwise identity is unchanged. P2 pivots are lower (xbar_avg 0.40 to 0.47), so 2m is 0.8 to 0.94; the clip would
+then touch agents above that (normal tail estimate about 0.6% of agents for 2m = 0.88, mean shift about 0.0003). The clip
+engagement count (agents, steps) is saved per run so the claim can be checked rather than assumed.
+
+### R2(c) Relabelling and a real complementarity
+k > 0 in the quality channel is a multiplicative tie between a_r and the AI boost: it is assumption-forced and is called
+reinforcing, not complementarity, in all text. k = 0 is ability-independent; k < 0 is compensatory.
+
+Proposed complementarity spec C1 (calibration complementarity, exploratory, off the k axis): quality = 1 + B[tier]*u*g_c,
+g_c = m*(1 - c), where c is the agent's own calibration error and m is the P1 pivot. Reading: the AI boost is realised in
+proportion to how well the user can judge AI output. Ability enters only through the trajectory of c.
+Analytic check at t = 0 in zero_interaction mode:
+- c(0) = d(0) = 0 for every agent, so g_c = m for all, identical to the k = 0 spec at t = 0: zero gap effect by equation.
+- To first order, d(t) = ALPHA_D*ubar*t and c(t) = BETA_C*ALPHA_D*ubar*t^2/2, so agents are ordered in c by their mean use
+  ubar (surprise recovery, GAMMA_C, is second order).
+- ubar depends on ability through: (i) urgency (agents with higher a finish tasks sooner and spend fewer days at high
+  urgency, so lower u: higher ability, lower ubar); (ii) the aspiration gap term (agents below aspiration use more; zero at
+  t = 0 in zero_interaction because aspiration = a_base, and in full mode currently (100 - a_r)/100, favouring low
+  ability); (iii) life-task dilution through SR (SR_ABILITY_WEIGHT, r = 0.30; high ability gets fewer life tasks, higher
+  ubar), small: from arrival rates (life tasks about 0.018 accepted per day lasting 3 days, academic about 0.76 per day lasting 7 to 45) life tasks are well under 1% of task-days (an estimate, not measured); (iv) legitimacy gate, ability-free in zero_interaction.
+  Sign of the net effect is therefore not fixed by the equations alone, but (i) and (ii) both point the same way and (iii)
+  is small: higher-ability agents get lower c, so g_c is larger for them, a weak reinforcing gradient that arises from
+  behaviour and not from the benefit formula. BETA_C only moves c and no ability-linked parameter enters c directly.
+- Consistent with the single-seed diagnostics at step 960 (tercile low / mid / high): free_market d = 0.241 / 0.249 / 0.223,
+  c = 0.365 / 0.396 / 0.360; universal_permanent d = 0.553 / 0.533 / 0.502, c = 0.902 / 0.890 / 0.861. Gradient is small
+  (about 5 to 9% in the high tercile), so C1 will move E_G far less than the k axis does.
+- C1 is not level-matched: at step 960 mean (1 - c) is about 0.62 in free_market and about 0.10 in universal_permanent,
+  so C1 mostly measures the cost of miscalibration, and it can reverse the ordering of scenarios by access. It is therefore
+  reported as a separate exploratory spec with its mean g_c(t) diagnostic, never mixed into the k interpolation.
+Optional C2 (practice): g_d = m*(1 - d), same logic with dependency; not planned unless C1 is informative.
+Propagation test required at implementation: BETA_C and GAMMA_C become score-relevant under C1 (they are not today).
+
+### R2(d) Regression test (replaces the CSV-only check)
+1. Reference: after the v0.4.1 bug fixes and before adding k, run seeds 0-4 x 6 scenarios x {full, zero_interaction} (60
+   runs) and store, per run, sha256 of (i) the agent-level datacollector table at steps 1, 120, 240, 480, 720, 960 (all
+   agent variables, bytes) and (ii) model.random.getstate() after construction and after step 960. Stored in
+   tests/ref_hashes_v041.json (small, committed); regression reference is v0.4.1, not production_v04.
+2. After adding k: with k = 1.0 every hash must be identical. Because k = 1.0 gives (1.0 - k) = 0.0, then x + 0.0*(m - x) = x
+   in IEEE arithmetic, and the product order 1 + B*u*g is unchanged, the identity is expected bit for bit.
+3. No extra random draw: assert that model.random state after construction is identical for every k (spec parameters are
+   read only in agents._complete_tasks, after Phase C scoring, and no rng call is added); and that the final random state
+   hash equals the reference at k = 1.
+4. The test also runs one k = 0.5 case and asserts it differs from the reference in score columns (a test that the
+   parameter binds, per the propagation rule) and is identical in everything not downstream of score (retained ability
+   trajectory is identical except through the aspiration path, so this comparison is reported, not asserted).
