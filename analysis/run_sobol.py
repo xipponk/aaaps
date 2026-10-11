@@ -1,5 +1,5 @@
 """
-analysis/run_sobol.py — Sobol Variance Decomposition (ODD §9 Stage 2).
+analysis/run_sobol.py: Sobol Variance Decomposition (ODD §9 Stage 2).
 
 Executes Sobol GSA across the corrected retained-12 parameter set (from the fixed
 Morris screening, 12-metric composite ranking) on the free_market scenario
@@ -24,6 +24,7 @@ if PROJECT_ROOT not in sys.path:
 
 from scenarios.free_market import run as run_free_market
 import config.params as P
+from analysis.param_guard import reset_params
 
 # Corrected retained-12 (Morris 12-metric composite ranking, fixed codebase)
 PROBLEM_12 = {
@@ -67,6 +68,7 @@ METRICS = [
 
 
 def _worker_eval(idx_sample: tuple[int, np.ndarray]) -> tuple[int, dict[str, float]]:
+    reset_params()
     idx, param_values = idx_sample
     (
         ab_mean, ab_std, proc_factor, delta_d,

@@ -1,5 +1,5 @@
 """
-scenarios/baseline.py — Baseline scenario runner (v0.3).
+scenarios/baseline.py: Baseline scenario runner (v0.3).
 
 No AI access (S0 scenario). Reference baseline.
 """

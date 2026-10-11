@@ -32,7 +32,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 import config.params as P
-from analysis.manifest import write_manifest
+from analysis.param_guard import reset_params
+from analysis.manifest import network_summary, write_manifest
 from analysis.run_morris_screening import PROBLEM as MORRIS_PROBLEM
 from analysis.run_production import _compute_metrics, _simulate
 
@@ -54,6 +55,7 @@ def build_problem() -> dict:
 
 def _job(args):
     scenario, names, vec, pidx, seed = args
+    reset_params()
     for n, v in zip(names, vec):
         if n == "SHAREABLE_SEATS_TIER3":
             P.SHAREABLE_SEATS[3] = int(round(float(v)))
@@ -125,7 +127,7 @@ def main() -> None:
     write_manifest(os.path.join(OUT, stem + "_manifest.json"), stage="sobol", scenario=a.scenario,
                    seeds=seeds, n_students=P.N_STUDENTS, N=a.N, calc_second_order=False,
                    sampler=f"SALib.sample.sobol scramble=True seed={SAMPLE_SEED}", parameters=problem["names"],
-                   bounds=problem["bounds"], total_runs=len(jobs), runs_csv=os.path.abspath(runs_path))
+                   bounds=problem["bounds"], total_runs=len(jobs), runs_csv=os.path.abspath(runs_path), network=network_summary(df))
     top = idx[~idx.degenerate].pivot(index="parameter", columns="metric", values="ST")
     print(top.round(3).to_string())
 

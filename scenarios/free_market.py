@@ -1,5 +1,5 @@
 """
-scenarios/free_market.py — Free Market scenario runner (v0.3).
+scenarios/free_market.py: Free Market scenario runner (v0.3).
 
 Standard market scenario where students adopt AI based on budget & SES.
 """

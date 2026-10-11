@@ -39,6 +39,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 import config.params as P
+from analysis.param_guard import reset_params
 from analysis.manifest import write_manifest
 from scenarios.free_market import run as run_free_market
 
@@ -53,6 +54,7 @@ METRICS = ["score_total", "deadline_miss_count"]
 
 def _run(args):
     seed, lam = args
+    reset_params()
     if lam is not None:
         P.LAMBDA_A = lam
     m = run_free_market(seed=seed, n_students=N, zero_interaction_mode=True)

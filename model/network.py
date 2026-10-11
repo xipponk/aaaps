@@ -1,11 +1,17 @@
 """
-model/network.py — Social Network generation for AAAPS v0.3.
+model/network.py: Social Network generation for AAAPS v0.3.
 
 Generates a static Stochastic Block Model across sections with SES and
-ability homophily rewiring. Ensures network connectivity and target degree bounds.
+ability homophily rewiring. v0.4.1: the only rejection criterion is connectivity. The mean
+degree is recorded and checked against P.TARGET_K_BAR_RANGE as a validation warning, never as
+a rejection rule (rejecting on it conditioned the realised network on the parameters). If no
+connected graph is found in max_retries attempts a RuntimeError is raised: there is no
+Erdos-Renyi fallback, so every network in a run is a stochastic block model.
 """
 
 from __future__ import annotations
+
+import warnings
 
 import networkx as nx
 import numpy as np
@@ -36,6 +42,7 @@ def generate_social_network(
     prob_matrix = np.full((n_sections, n_sections), P.SBM_P_BETWEEN)
     np.fill_diagonal(prob_matrix, P.SBM_P_WITHIN)
 
+    disconnected_rejects = 0
     for attempt in range(max_retries):
         # 1. Base SBM Graph
         sbm = nx.stochastic_block_model(
@@ -77,29 +84,39 @@ def generate_social_network(
                     G.remove_edge(u, v)
                     G.add_edge(u, new_v)
 
-        # 3. Sanity Checks: Connectivity & Average Degree k_bar
+        # 3. Connectivity is the only rejection criterion
         if not nx.is_connected(G):
+            disconnected_rejects += 1
             continue
 
         degrees = [d for _, d in G.degree()]
         k_bar = float(np.mean(degrees)) if degrees else 0.0
-        if not (P.TARGET_K_BAR_RANGE[0] <= k_bar <= P.TARGET_K_BAR_RANGE[1]):
-            continue
+        kbar_in_range = bool(P.TARGET_K_BAR_RANGE[0] <= k_bar <= P.TARGET_K_BAR_RANGE[1])
+        if not kbar_in_range:
+            warnings.warn(
+                f"network mean degree {k_bar:.2f} outside validation range {P.TARGET_K_BAR_RANGE}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         # 4. Assign edge tie_strength ~ Beta(2,2)
         for u, v in G.edges():
             G[u][v]['tie_strength'] = float(rng.beta(P.TIE_STRENGTH_BETA_A, P.TIE_STRENGTH_BETA_B))
 
+        n_edges = G.number_of_edges()
+        within = sum(1 for u, v in G.edges() if agent_map[u].section_id == agent_map[v].section_id)
+        G.graph.update(
+            generator="sbm",
+            attempts=attempt + 1,
+            disconnected_rejects=disconnected_rejects,
+            k_bar=k_bar,
+            within_section_share=(within / n_edges) if n_edges else 0.0,
+            kbar_in_range=kbar_in_range,
+        )
         return G
 
-    # Fallback if max_retries exceeded
-    p_fallback = min(1.0, 8.0 / max(1, n - 1))
-    G = nx.erdos_renyi_graph(n, p=p_fallback, seed=int(rng.integers(0, 1_000_000)))
-    mapping = {i: ids[i] for i in range(n)}
-    G = nx.relabel_nodes(G, mapping)
-    if not nx.is_connected(G):
-        for i in range(n):
-            G.add_edge(ids[i], ids[(i + 1) % n])
-    for u, v in G.edges():
-        G[u][v]['tie_strength'] = float(rng.beta(P.TIE_STRENGTH_BETA_A, P.TIE_STRENGTH_BETA_B))
-    return G
+    raise RuntimeError(
+        f"no connected stochastic block model in {max_retries} attempts "
+        f"(SBM_P_WITHIN={P.SBM_P_WITHIN}, SBM_P_BETWEEN={P.SBM_P_BETWEEN}, n={n}, "
+        f"HOMOPHILY_SES={P.HOMOPHILY_SES}, HOMOPHILY_ABILITY={P.HOMOPHILY_ABILITY})"
+    )

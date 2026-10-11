@@ -1,5 +1,5 @@
 """
-analysis/run_morris_screening.py — Morris Elementary Effects Screening (ODD §9 Stage 1).
+analysis/run_morris_screening.py: Morris Elementary Effects Screening (ODD §9 Stage 1).
 
 Runs Morris screening across ALL 23 candidate parameters (Group A-D) on the free_market
 scenario, tracking all 12 output metrics. Produces a composite ranking (max across
@@ -30,7 +30,8 @@ if PROJECT_ROOT not in sys.path:
 
 from scenarios.free_market import run as run_free_market
 import config.params as P
-from analysis.manifest import write_manifest
+from analysis.param_guard import reset_params
+from analysis.manifest import network_summary, write_manifest
 
 MORRIS_SEEDS = (2000, 2001, 2002)
 OUT_DIR = os.path.join(PROJECT_ROOT, "outputs", "phase2")
@@ -83,6 +84,7 @@ METRICS = [
 
 def _worker_eval(idx_sample: tuple[int, np.ndarray], seed: int = 42) -> tuple[int, dict[str, float]]:
     idx, param_values = idx_sample
+    reset_params()
     (
         alpha_d, delta_d, beta_c, gamma_c, rho_ratio, lambda_a,
         eta, eta_self, kappa, urgency_w, asp_gap_w,
@@ -144,6 +146,11 @@ def _worker_eval(idx_sample: tuple[int, np.ndarray], seed: int = 42) -> tuple[in
         'mean_legitimacy': float(np.mean(df['ai_legitimacy'])),
         'borrowing_agent_count': float(df['borrowing_from'].notna().sum()),
         'total_shared_seats_lent': float(df['shared_seats_out'].sum()),
+        'net_attempts': float(model.network_info.get('attempts', np.nan)),
+        'net_disconnected_rejects': float(model.network_info.get('disconnected_rejects', np.nan)),
+        'net_k_bar': float(model.network_info.get('k_bar', np.nan)),
+        'net_within_section_share': float(model.network_info.get('within_section_share', np.nan)),
+        'net_kbar_in_range': float(model.network_info.get('kbar_in_range', np.nan)),
     }
     return idx, res
 
@@ -230,7 +237,7 @@ def run_morris():
     write_manifest(os.path.join(out_dir, "morris_v04_manifest.json"), stage="morris",
                    seeds=list(MORRIS_SEEDS), n_students=240, scenario="free_market",
                    sampler=f"SALib.sample.morris r={r} num_levels=4 seed=42", bounds=PROBLEM['bounds'],
-                   names=PROBLEM['names'], num_design_points=num_evals)
+                   names=PROBLEM['names'], num_design_points=num_evals, network=network_summary(raw_df))
 
 
 if __name__ == "__main__":

@@ -30,7 +30,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 import config.params as P
-from analysis.manifest import write_manifest
+from analysis.param_guard import reset_params
+from analysis.manifest import network_summary, write_manifest
 from analysis.run_production import _run_one
 
 SEEDS = list(range(1000, 1030))
@@ -43,6 +44,7 @@ OUT = os.path.join(PROJECT_ROOT, "outputs", "phase1")
 
 def _job(args):
     scenario, seed, lam = args
+    reset_params()
     P.LAMBDA_A = float(lam)
     m = _run_one((scenario, seed))
     m["lambda_a"] = lam
@@ -75,7 +77,7 @@ def stage_grid():
         print(f"target {t:.2f}: interpolated LAMBDA_A = {lam:.5f}")
     write_manifest(os.path.join(OUT, "calib_grid_manifest.json"), stage="grid", seeds=SEEDS,
                    n_students=P.N_STUDENTS, grid=GRID, scenario="universal_permanent",
-                   sampler="log-linear grid")
+                   sampler="log-linear grid", network=network_summary(df))
 
 
 def stage_verify(lams):
@@ -90,7 +92,7 @@ def stage_verify(lams):
     print(summ.to_string())
     write_manifest(os.path.join(OUT, f"calib_verify_{tag}_manifest.json"), stage="verify",
                    seeds=SEEDS, n_students=P.N_STUDENTS, lambdas=lams, scenarios=SCENARIOS6,
-                   sampler="none (fixed values)")
+                   sampler="none (fixed values)", network=network_summary(df))
 
 
 if __name__ == "__main__":

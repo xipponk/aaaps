@@ -23,7 +23,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 import config.params as P
-from analysis.manifest import write_manifest
+from analysis.param_guard import reset_params
+from analysis.manifest import network_summary, write_manifest
 from analysis.run_production import _compute_metrics
 from scenarios.free_market import run as run_free_market
 
@@ -47,14 +48,13 @@ def _job(args):
     cond, seed = args
     kw = dict(CONDITIONS[cond])
     overrides = kw.pop("params", {})
-    saved = {k: getattr(P, k) for k in overrides}
+    reset_params()
     try:
         for k, v in overrides.items():
             setattr(P, k, v)
         m = run_free_market(seed=seed, n_students=P.N_STUDENTS, **kw)
     finally:
-        for k, v in saved.items():
-            setattr(P, k, v)
+        reset_params()
     r = _compute_metrics(m)
     r.update(condition=cond, seed=seed)
     return r
@@ -103,7 +103,7 @@ def main():
     print(eff.round(4).to_string(index=False))
     write_manifest(os.path.join(OUT, "interaction_isolation_manifest.json"), stage="isolation",
                    seeds=SEEDS, n_students=P.N_STUDENTS, conditions=list(CONDITIONS),
-                   scenario="free_market", sampler="none (paired seeds)")
+                   scenario="free_market", sampler="none (paired seeds)", network=network_summary(df))
 
 
 if __name__ == "__main__":

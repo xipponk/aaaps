@@ -1,5 +1,5 @@
 """
-model/model.py — AaapsModel (v0.3 Networked Redesign).
+model/model.py: AaapsModel (v0.3 Networked Redesign).
 
 World container for AAAPS v0.3. Implements hybrid 2-stage scheduler,
 3 interaction submodels (Normative Diffusion, Aspiration Adjustment, Access Market),
@@ -31,7 +31,7 @@ def compute_gini(model: AaapsModel) -> float:
 
 
 class AaapsModel(mesa.Model):
-    """AaapsModel v0.3 — Networked Agent-Based Model of CS students."""
+    """AaapsModel v0.3: Networked Agent-Based Model of CS students."""
 
     n_students: int
     scenario: str
@@ -108,6 +108,7 @@ class AaapsModel(mesa.Model):
         else:
             np_rng = np.random.default_rng(seed if seed is not None else 42)
             self.social_network = generate_social_network(agent_list, np_rng)
+        self.network_info = dict(self.social_network.graph)
 
         # 3. Mesa DataCollector setup
         self.datacollector = mesa.DataCollector(
@@ -297,12 +298,22 @@ class AaapsModel(mesa.Model):
             if not nbrs:
                 continue
 
-            peer_scores = [snapshot[nid]['score_total'] for nid in nbrs]
+            # v0.4.1: score_total is cumulative points (tens of thousands) while aspiration is an
+            # ability level on the 10-100 scale, so averaging scores into the aspiration saturated it
+            # at the upper clip. The comparison is now a rank: p = tie-strength-weighted share of
+            # neighbours with a lower cumulative score than the agent (ties count one half), mapped
+            # linearly onto the ability scale with the existing clamp bounds. No agent trait
+            # (a_base, a_r) enters the target, so ability reaches aspiration only through scores.
+            own = snapshot[a.unique_id]['score_total']
             weights = [self.social_network[a.unique_id][nid]['tie_strength'] for nid in nbrs]
-            peer_signal = float(np.average(peer_scores, weights=weights))
+            below = [1.0 if snapshot[nid]['score_total'] < own else 0.5 if snapshot[nid]['score_total'] == own else 0.0
+                     for nid in nbrs]
+            pct = float(np.average(below, weights=weights))
+            lo, hi = P.ABILITY_CLAMP
+            target = lo + pct * (hi - lo)
 
-            t_next = a.aspiration + P.KAPPA * (peer_signal - a.aspiration)
-            a.aspiration = float(np.clip(t_next, 10.0, 100.0))
+            t_next = a.aspiration + P.KAPPA * (target - a.aspiration)
+            a.aspiration = float(np.clip(t_next, lo, hi))
 
         # B3. Access Sharing Market (Material)
         for a in student_agents:
@@ -318,7 +329,7 @@ class AaapsModel(mesa.Model):
             section_agents[sec] = float(np.clip(scarcity, 0.0, 1.0))
 
         # Demander pool (ODD §7.7): any agent below tier 3 whose own undamped
-        # willingness-to-pay (§7.6) is less than the cost of the next tier up —
+        # willingness-to-pay (§7.6) is less than the cost of the next tier up,
         # i.e. they'd want to upgrade but can't afford it themselves.
         demanders = []
         for a in student_agents:

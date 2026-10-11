@@ -32,6 +32,16 @@ def params_hash() -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
+def network_summary(df) -> dict:
+    """Min / mean / max of the per-run realised-network columns (net_*) of a runs table."""
+    out = {}
+    for c in [c for c in df.columns if c.startswith("net_")]:
+        v = df[c].dropna()
+        out[c] = ({"min": float(v.min()), "mean": float(v.mean()), "max": float(v.max()), "n": int(len(v))}
+                  if len(v) else {"n": 0})
+    return out
+
+
 def _git(*args: str) -> str:
     return subprocess.run(
         ["git", *args], cwd=PROJECT_ROOT, capture_output=True, text=True, check=False

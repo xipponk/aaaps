@@ -1,5 +1,5 @@
 """
-analysis/run_sobol_targeted_subsidy.py — Sobol Variance Decomposition (ODD §9 Stage 2,
+analysis/run_sobol_targeted_subsidy.py: Sobol Variance Decomposition (ODD §9 Stage 2,
 supplementary scenario check).
 
 Executes the SAME corrected retained-12 parameter Sobol design used for free_market
@@ -11,7 +11,7 @@ Uses the identical Saltelli sample (N=512, 7,168 evaluations, calc_second_order=
 seed=42) and the same 12 output metrics as run_sobol.py, for direct comparability.
 
 Outputs to outputs/sobol_results_targeted_subsidy.csv and
-outputs/sobol_raw_evaluations_targeted_subsidy.csv (separate filenames — does not
+outputs/sobol_raw_evaluations_targeted_subsidy.csv (separate filenames: does not
 overwrite the free_market Sobol results).
 """
 
@@ -32,6 +32,7 @@ if PROJECT_ROOT not in sys.path:
 
 from model.model import AaapsModel
 import config.params as P
+from analysis.param_guard import reset_params
 
 # Identical retained-12 parameter set and bounds as run_sobol.py (free_market)
 PROBLEM_12 = {
@@ -84,6 +85,7 @@ def _apply_targeted_subsidy(model: AaapsModel) -> None:
 
 def _worker_eval(args):
     idx, sample = args
+    reset_params()
     (ability_mean, ability_std, proc_diff, delta_d, beta_c, eta_self,
      pros_beta_a, eta, p_visible, alpha_d, p_between, conf_beta_b) = sample
 
@@ -153,7 +155,7 @@ def _worker_eval(args):
 
 def run_sobol_targeted_subsidy():
     print("=" * 79)
-    print("Sobol Variance Decomposition — SUPPLEMENTARY: targeted_subsidy scenario")
+    print("Sobol Variance Decomposition: SUPPLEMENTARY: targeted_subsidy scenario")
     print("=" * 79)
 
     N = 512

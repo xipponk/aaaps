@@ -27,7 +27,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 import config.params as P
-from analysis.manifest import write_manifest
+from analysis.param_guard import reset_params
+from analysis.manifest import network_summary, write_manifest
 from analysis.run_production import _compute_metrics, _simulate
 
 SCENARIOS = ["baseline", "free_market", "mixed_policy", "targeted_subsidy",
@@ -38,6 +39,7 @@ OUT = os.path.join(PROJECT_ROOT, "outputs", "phase2")
 
 def _job(args):
     scenario, seed = args
+    reset_params()
     model = _simulate(scenario, seed)
     row = _compute_metrics(model)
     allv = model.datacollector.get_agent_vars_dataframe()
@@ -77,7 +79,7 @@ def main():
             "borrowing_agent_count", "ever_borrowed"]
     print(df.groupby("scenario")[cols].mean().round(4).to_string())
     write_manifest(os.path.join(OUT, "production_v04_manifest.json"), stage="production",
-                   seeds=SEEDS, n_students=P.N_STUDENTS, scenarios=SCENARIOS, sampler="none")
+                   seeds=SEEDS, n_students=P.N_STUDENTS, scenarios=SCENARIOS, sampler="none", network=network_summary(df))
 
 
 if __name__ == "__main__":

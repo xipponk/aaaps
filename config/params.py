@@ -1,5 +1,5 @@
 """
-config/params.py — ALL simulation parameters in one place (v0.3 Networked Redesign).
+config/params.py: ALL simulation parameters in one place (v0.3 Networked Redesign).
 
 Never hardcode parameter values in agents.py or model.py.
 Import from here instead.
@@ -34,7 +34,7 @@ SBM_P_WITHIN: Final[float] = 0.18         # [C] Intra-section connection probabi
 SBM_P_BETWEEN: Final[float] = 0.015       # [C] Inter-section connection probability
 HOMOPHILY_SES: Final[float] = 0.20        # [K] Low-moderate excess same-SES tie prob per literature
 HOMOPHILY_ABILITY: Final[float] = 0.25    # [K] Academic ability homophily
-TARGET_K_BAR_RANGE: Final[tuple[float, float]] = (6.0, 10.0)  # [K] Target average degree 6-10
+TARGET_K_BAR_RANGE: Final[tuple[float, float]] = (2.0, 30.0)  # [F] validation warning range for realised mean degree; not a rejection rule (v0.4.1)
 TIE_STRENGTH_BETA_A: Final[float] = 2.0   # [K] Beta(2,2) edge tie strength shape a
 TIE_STRENGTH_BETA_B: Final[float] = 2.0   # [K] Beta(2,2) edge tie strength shape b
 P_VISIBLE: Final[float] = 0.70            # [K] Noisy observation probability of neighbour AI use

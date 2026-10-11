@@ -1,5 +1,5 @@
 """
-analysis/run_production.py — Policy-scenario comparison (ODD §5.5, §8 replication).
+analysis/run_production.py: Policy-scenario comparison (ODD §5.5, §8 replication).
 
 Runs all 5 scenarios at N=240, 960 steps, 100 seeds each (500 runs total),
 collecting the 12 GSA metrics plus scenario/seed identifiers.
@@ -31,6 +31,7 @@ if PROJECT_ROOT not in sys.path:
 
 from model.model import AaapsModel
 import config.params as P
+from analysis.param_guard import reset_params
 
 SCENARIOS = ["baseline", "free_market", "universal_access", "mixed_policy", "targeted_subsidy"]
 N_SEEDS = 100
@@ -77,6 +78,12 @@ def _compute_metrics(model: AaapsModel) -> dict[str, float]:
         'mean_legitimacy': float(np.mean(df['ai_legitimacy'])),
         'borrowing_agent_count': float(df['borrowing_from'].notna().sum()),
         'total_shared_seats_lent': float(df['shared_seats_out'].sum()),
+        # v0.4.1: realised network, recorded for every run (NaN when the graph is empty)
+        'net_attempts': float(model.network_info.get('attempts', np.nan)),
+        'net_disconnected_rejects': float(model.network_info.get('disconnected_rejects', np.nan)),
+        'net_k_bar': float(model.network_info.get('k_bar', np.nan)),
+        'net_within_section_share': float(model.network_info.get('within_section_share', np.nan)),
+        'net_kbar_in_range': float(model.network_info.get('kbar_in_range', np.nan)),
     }
 
 
@@ -113,10 +120,17 @@ def _simulate(scenario: str, seed: int) -> AaapsModel:
 
 def _run_one(scenario_seed: tuple[str, int]) -> dict:
     scenario, seed = scenario_seed
+    reset_params()
     metrics = _compute_metrics(_simulate(scenario, seed))
     metrics['scenario'] = scenario
     metrics['seed'] = seed
     return metrics
+
+
+def _pool_job(scenario_seed: tuple[str, int]) -> dict:
+    """Worker entry for run_production(): clean parameters, then one run."""
+    reset_params()
+    return _run_one(scenario_seed)
 
 
 def run_production():
@@ -130,7 +144,7 @@ def run_production():
     t0 = time.time()
     results = []
     with ProcessPoolExecutor(max_workers=14) as executor:
-        futures = [executor.submit(_run_one, j) for j in jobs]
+        futures = [executor.submit(_pool_job, j) for j in jobs]
         done = 0
         for fut in as_completed(futures):
             results.append(fut.result())
