@@ -39,7 +39,7 @@ GRID = [0.0007, 0.0012, 0.0016, 0.002, 0.0025, 0.004, 0.0059]
 TARGETS = [0.10, 0.21, 0.35]
 SCENARIOS6 = ["baseline", "free_market", "mixed_policy", "targeted_subsidy",
               "universal_access", "universal_permanent"]
-OUT = os.path.join(PROJECT_ROOT, "outputs", "phase1")
+OUT = os.path.join(PROJECT_ROOT, "outputs", os.environ.get("AAAPS_OUT", "phase1"))
 
 
 def _job(args):

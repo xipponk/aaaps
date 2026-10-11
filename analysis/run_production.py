@@ -120,7 +120,6 @@ def _simulate(scenario: str, seed: int) -> AaapsModel:
 
 def _run_one(scenario_seed: tuple[str, int]) -> dict:
     scenario, seed = scenario_seed
-    reset_params()
     metrics = _compute_metrics(_simulate(scenario, seed))
     metrics['scenario'] = scenario
     metrics['seed'] = seed
