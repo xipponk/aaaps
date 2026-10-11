@@ -147,7 +147,7 @@ DELTA_D: Final[float] = 0.005             # [C] Dependency decay rate when not u
 BETA_C: Final[float] = 0.010              # [C] Calibration error growth rate with dependency
 GAMMA_C: Final[float] = 0.050             # [C] Calibration error recovery rate with surprise
 RHO_RATIO: Final[float] = 0.50            # [F] Recovery rate relative to erosion: rho = RHO_RATIO * LAMBDA_A (GSA range 0.1-0.9)
-LAMBDA_A: Final[float] = 0.0020           # [C] Ability erosion rate; 21% relative decline of mean retained ability at step 960, permanent universal_access, 30 seeds (Gate 1); 0.0007 to 0.0059 is the 10 to 35% sensitivity bracket
+LAMBDA_A: Final[float] = 0.00248         # [C] Ability erosion rate; v0.4.1: 21% relative decline of mean retained ability at step 960, permanent universal_access, seeds 1000-1029 (interpolated from outputs/v041/calib_grid.csv, verified 0.2104 in calib_verify); 0.0007 to 0.0059 is the 10 to 35% sensitivity bracket (v0.4 value was 0.0020 before the aspiration and generator fixes)
 
 # =============================================================================
 # Interaction Parameters (ODD §7.7-7.9)
