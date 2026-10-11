@@ -121,8 +121,6 @@ share are reported per run (v0.4.1 writes them to the manifest).
 
 ## Amendments
 
-(none yet)
-
 ### A1 (before any k-spec run; design step 2)
 - Pivot for the k family: P1, m = sample mean of a_base at t = 0 per run; g = max(0, k*x + (1-k)*m). P2 (level-matched
   per scenario and seed from the k = 1 run) is a sensitivity analysis for k = 0 and k = -1 in the two co-primary scenarios,
@@ -130,3 +128,27 @@ share are reported per run (v0.4.1 writes them to the manifest).
 - k > 0 is labelled "reinforcing", never "complementarity". C1 (g_c = m*(1 - c)) is an exploratory spec off the k axis.
 - Mean g_k(t) saved at steps 1, 120, ..., 960 for every run; clip engagement counts saved.
 - Regression reference is v0.4.1 agent-level hashes, not production_v04.
+
+### A2 (Gate 4b conditions; written before the recalibration runs and before any no_aspiration run on v0.4.1)
+- A1 conditions: P1 is primary and P2 is sensitivity. No claim about the ordering of scenarios across k is made without
+  P2 for the same k. C1 is exploratory and is interpreted only as E_G within a scenario, never across scenarios.
+- Aspiration (v0.4.1, option B restricted to network neighbours): p_i = tie-strength-weighted share of i's neighbours with a
+  lower cumulative score than i (ties count one half); target = ABILITY_CLAMP[0] + p_i * (ABILITY_CLAMP[1] - ABILITY_CLAMP[0]);
+  aspiration moves toward the target at rate KAPPA and is clipped to ABILITY_CLAMP. The comparison is unit-free (a rank), and
+  the map onto the ability scale uses only the existing clamp bounds, so no new parameter and no trait (a_base, a_r) enters
+  the target. The aspiration gap is still used only at agents.py:176, in ability points divided by 100.
+- Diagnostic seen before this amendment: 3 calibration seeds (1000-1002) x {free_market, universal_permanent}, aspiration
+  share within 1 point of a bound, its SD and its correlation with a_base at steps 30, 120, 480, 960. No dependency or
+  score effect of aspiration has been looked at.
+- Inertness criterion for the aspiration channel, decided on calibration seeds 1000-1029 only, free_market, at the
+  recalibrated LAMBDA_A: paired differences (full minus no_aspiration, aspiration frozen at a_base) in mean_dependency and
+  in relative_ability_decline over the 30 seeds, bootstrap 10,000 resamples (rng 20261016), 90% interval (equivalent to TOST
+  at alpha 0.05). The channel is called inert if both intervals lie inside +/-0.02 (the SESOI for dependency and decline).
+  If inert, this is reported at Gate 4c and fallback option C (30-day score rate) is evaluated by the same criterion; the
+  choice between B and C is then made by Aj. Tuul, not switched by the code.
+- Network sweep: one-at-a-time, 17 points = 1 default + 4 parameters x 4 non-default levels (SBM_P_WITHIN {0.10, 0.14, 0.25,
+  0.35}, SBM_P_BETWEEN {0.005, 0.03, 0.06, 0.12}, HOMOPHILY_SES {0, 0.4, 0.6, 0.8}, HOMOPHILY_ABILITY {0, 0.5, 0.75, 1.0}),
+  in {full, no_norms}. This is not a 5x5 grid: interactions among network parameters are not tested. A separate
+  density-controlled 4-point sweep at expected degree 12 is exploratory.
+- Run-time safeguards added to every runner: parameters are reset before each job (reset_params), and the realised network
+  (attempts, disconnected rejects, k_bar, within-section share) is written with every run.
