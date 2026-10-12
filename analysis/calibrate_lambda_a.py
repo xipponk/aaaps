@@ -35,7 +35,7 @@ from analysis.manifest import network_summary, write_manifest
 from analysis.run_production import _run_one
 
 SEEDS = list(range(1000, 1030))
-GRID = [0.0007, 0.0012, 0.0016, 0.002, 0.0025, 0.004, 0.0059]
+GRID = [float(x) for x in os.environ["AAAPS_GRID"].split(",")] if os.environ.get("AAAPS_GRID") else [0.0007, 0.0012, 0.0016, 0.002, 0.0025, 0.004, 0.0059]
 TARGETS = [0.10, 0.21, 0.35]
 SCENARIOS6 = ["baseline", "free_market", "mixed_policy", "targeted_subsidy",
               "universal_access", "universal_permanent"]
