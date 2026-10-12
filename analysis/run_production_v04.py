@@ -34,7 +34,7 @@ from analysis.run_production import _compute_metrics, _simulate
 SCENARIOS = ["baseline", "free_market", "mixed_policy", "targeted_subsidy",
              "universal_access", "universal_permanent"]
 SEEDS = list(range(100))
-OUT = os.path.join(PROJECT_ROOT, "outputs", "phase2")
+OUT = os.path.join(PROJECT_ROOT, "outputs", os.environ.get("AAAPS_OUT", "phase2"))
 
 
 def _job(args):

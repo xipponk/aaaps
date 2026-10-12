@@ -34,7 +34,7 @@ from analysis.param_guard import reset_params
 from analysis.manifest import network_summary, write_manifest
 
 MORRIS_SEEDS = (2000, 2001, 2002)
-OUT_DIR = os.path.join(PROJECT_ROOT, "outputs", "phase2")
+OUT_DIR = os.path.join(PROJECT_ROOT, "outputs", os.environ.get("AAAPS_OUT", "phase2"))
 
 # 23 candidate parameters
 PROBLEM = {
@@ -52,7 +52,7 @@ PROBLEM = {
         [0.006, 0.015],   # BETA_C
         [0.030, 0.070],   # GAMMA_C
         [0.100, 0.900],   # RHO_RATIO
-        [0.0007, 0.0059], # LAMBDA_A (10 to 35 percent decline bracket, Gate 1)
+        [0.0009, 0.0059], # LAMBDA_A (v0.4.1: 10 to 31 percent decline bracket; decline saturates near 34.9 percent from the ability clamp, Gate 4c)
         [0.020, 0.200],   # ETA
         [0.010, 0.100],   # ETA_SELF
         [0.020, 0.250],   # KAPPA

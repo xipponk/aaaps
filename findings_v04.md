@@ -241,3 +241,18 @@ decline 0.54 to 0.59) and legitimacy-driven ETA and ETA_SELF (weaker for depende
 targeted_subsidy). P_VISIBLE and PROSOCIALITY_BETA_A earned high Morris scores mostly through the
 borrowing noise (see the Morris section); P_VISIBLE retains a real effect on mean_legitimacy only.
 Network parameters (SBM_P_BETWEEN, SBM_P_WITHIN, HOMOPHILY_SES, HOMOPHILY_ABILITY) sit at the bottom of the Morris table and were not in the Sobol set. Narrative interpretation waits for Gate 3.
+
+## v0.4.1 notes (Gate 4c), added 2026-10-12
+- Maximum relative decline of mean retained ability the model can produce is about 34.9% (universal_permanent, seeds 1000-1029:
+  0.3266 at LAMBDA_A 0.008, 0.3418 at 0.012, 0.3478 at 0.02, 0.3489 at 0.04). The sensitivity bracket for LAMBDA_A is
+  therefore 10 to 31% (LAMBDA_A 0.0009 to 0.0059, measured 0.1000 and 0.3065), not 10 to 35%.
+- Mechanism of the saturation is the steady state of the ability dynamics, not the ability clamp. Erosion is
+  LAMBDA_A*d*u*a_r and recovery is RHO_RATIO*LAMBDA_A*(1-u)*(a_base-a_r): both scale with LAMBDA_A, so at steady state
+  LAMBDA_A cancels and a_r/a_base is fixed by d and u (about 0.66 at LAMBDA_A 0.012); LAMBDA_A only sets how fast it is
+  approached within 960 days. Share of agents with a_r at ABILITY_CLAMP[0] at step 960 (universal_permanent, 5 seeds,
+  outputs/v041_ext/clamp_share.csv): 0.67% at 0.0009 (all of them agents whose a_base is itself 10), 0.75% at 0.00248,
+  1.17% at 0.0059, 0.83% at 0.012. An earlier statement in this project that the saturation comes from the clamp was wrong.
+- v0.4.1 default LAMBDA_A is 0.00248 (21.04% measured decline, seeds 1000-1029; a calibrated target, not a result).
+- Aspiration (option B) is inert at ASPIRATION_GAP_WEIGHT 0.2 by the criterion in preregistration.md A2 (dependency +0.0048,
+  decline +0.0058, both inside +/-0.02). Limitation: the target 10 + 90p maps a neighbour rank linearly onto the ability
+  scale although ability is roughly normal.

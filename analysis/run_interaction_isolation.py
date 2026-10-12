@@ -41,7 +41,7 @@ CONDITIONS = {
 }
 OUTCOMES = ["mean_dependency", "mean_calibration_error", "mean_retained_ability", "mean_score",
             "mean_legitimacy"]
-OUT = os.path.join(PROJECT_ROOT, "outputs", "phase2")
+OUT = os.path.join(PROJECT_ROOT, "outputs", os.environ.get("AAAPS_OUT", "phase2"))
 
 
 def _job(args):

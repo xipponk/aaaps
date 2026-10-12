@@ -59,3 +59,19 @@ def test_lambda_a_propagates_through_morris_and_sobol_jobs():
         m_lo, m_hi, s_lo, s_hi = f1.result()[1], f2.result()[1], f3.result(), f4.result()
     assert m_lo["mean_retained_ability"] > m_hi["mean_retained_ability"], (m_lo, m_hi)
     assert s_lo["mean_retained_ability"] > s_hi["mean_retained_ability"], (s_lo, s_hi)
+
+
+def test_lambda_a_bounds_give_about_10_and_31_percent_decline():
+    """Gate 4c: Morris/Sobol LAMBDA_A bounds are [0.0009, 0.0059]; measured on 30 seeds 0.1000 and 0.3065 (5 seeds here)."""
+    from analysis.calibrate_lambda_a import _job
+    from analysis.run_morris_screening import PROBLEM
+    lo_b, hi_b = PROBLEM["bounds"][PROBLEM["names"].index("LAMBDA_A")]
+    assert (lo_b, hi_b) == (0.0009, 0.0059)
+    seeds = range(1000, 1005)
+    with ProcessPoolExecutor(max_workers=10) as ex:
+        lo = list(ex.map(_job, [("universal_permanent", s, lo_b) for s in seeds]))
+        hi = list(ex.map(_job, [("universal_permanent", s, hi_b) for s in seeds]))
+    m_lo = float(np.mean([r["relative_ability_decline"] for r in lo]))
+    m_hi = float(np.mean([r["relative_ability_decline"] for r in hi]))
+    assert abs(m_lo - 0.100) < 0.02, m_lo
+    assert abs(m_hi - 0.3065) < 0.02, m_hi

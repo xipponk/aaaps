@@ -33,7 +33,7 @@ import config.params as P
 from analysis.run_morris_screening import PROBLEM
 from model.model import AaapsModel
 
-OUT = os.path.join(PROJECT_ROOT, "outputs", "phase2")
+OUT = os.path.join(PROJECT_ROOT, "outputs", os.environ.get("AAAPS_OUT", "phase2"))
 COMPOSITE = ["mean_score", "std_score", "gini_score", "mean_dependency", "mean_calibration_error",
              "relative_ability_decline", "deadline_miss_count", "mean_legitimacy"]
 FORCED = ["LAMBDA_A", "RHO_RATIO"]

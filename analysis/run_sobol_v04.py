@@ -37,7 +37,7 @@ from analysis.manifest import network_summary, write_manifest
 from analysis.run_morris_screening import PROBLEM as MORRIS_PROBLEM
 from analysis.run_production import _compute_metrics, _simulate
 
-OUT = os.path.join(PROJECT_ROOT, "outputs", "phase2")
+OUT = os.path.join(PROJECT_ROOT, "outputs", os.environ.get("AAAPS_OUT", "phase2"))
 RETAINED = os.path.join(OUT, "morris_v04_retained12.csv")
 SAMPLE_SEED = 20261009
 CHUNK = 140  # 10 design points per worker round on 14 workers
