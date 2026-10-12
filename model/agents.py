@@ -1,5 +1,5 @@
 """
-model/agents.py — StudentAgent (v0.3 Networked Redesign).
+model/agents.py: StudentAgent (v0.3 Networked Redesign).
 
 StudentAgent represents one undergraduate CS student. Implements Mesa 2.x API,
 coupled continuous dynamic states (d, c, a_r), interaction attributes,
@@ -110,7 +110,7 @@ class StudentAgent(mesa.Agent):
         self.dependency = 0.0
         self.calibration_error = 0.0
         self.retained_ability = base_ability
-        self.ai_legitimacy = 0.10
+        self.ai_legitimacy = P.INITIAL_LEGITIMACY
         self.aspiration = base_ability
         self.quota_balance = 0.0
         self.budget_remaining = monthly_budget
@@ -214,6 +214,18 @@ class StudentAgent(mesa.Agent):
                 drain = P.DRAIN_RATE[effective_tier] * u_t * progress_delta
                 self.quota_balance = max(0.0, self.quota_balance - drain)
 
+    def benefit_g(self) -> tuple[float, bool]:
+        """Ability term of the quality channel. k = 1 returns a_r/100 exactly (x + 0.0*(m - x)); no random draws.
+
+        Returns (g, clipped). P.BENEFIT_MODE "k": g = max(0, x + (1 - k)*(m - x)); "C1": g = m*(1 - calibration_error).
+        """
+        m = self.model.benefit_pivot
+        if P.BENEFIT_MODE == "C1":
+            return m * (1.0 - self.calibration_error), False
+        x = self.retained_ability / 100.0
+        raw = x + (1.0 - P.BENEFIT_ABILITY_SLOPE) * (m - x)
+        return (raw if raw > 0.0 else 0.0), raw < 0.0
+
     def _complete_tasks(self) -> None:
         remaining_queue = []
         effective_tier = max(self.ai_tier, self.ai_tier_effective)
@@ -223,7 +235,10 @@ class StudentAgent(mesa.Agent):
                 self.tasks_completed += 1
                 
                 u_t = getattr(task, '_last_u_t', 0.0)
-                quality_mult = 1.0 + P.AI_QUALITY_BOOST[effective_tier] * u_t * (self.retained_ability / 100.0)
+                g, clipped = self.benefit_g()
+                if clipped:
+                    self.model.benefit_clip_count += 1
+                quality_mult = 1.0 + P.AI_QUALITY_BOOST[effective_tier] * u_t * g
                 score = min(P.SCORE_CAP, task.base_score * quality_mult)
                 
                 if task.deadline_remaining > 0:
@@ -262,7 +277,7 @@ class StudentAgent(mesa.Agent):
 
         Recomputes willingness-to-pay for the agent's own AI subscription and
         re-selects the highest affordable tier.  Borrowed access suppresses
-        willingness-to-pay via BORROW_SUBSTITUTION — the substitution effect
+        willingness-to-pay via BORROW_SUBSTITUTION: the substitution effect
         that drives the policy-backfire result (§4.3).
 
         Reads ``borrowing_from`` as of the end of the previous month (Phase B
@@ -271,7 +286,7 @@ class StudentAgent(mesa.Agent):
         # Willingness-to-pay for own subscription (ODD §7.6)
         wtp = P.TIER_BUDGET_FRACTION[self.SES] * self.monthly_budget * self.w_score
 
-        # Borrowed access suppresses purchase — the substitution effect
+        # Borrowed access suppresses purchase: the substitution effect
         if self.borrowing_from is not None:
             wtp *= P.BORROW_SUBSTITUTION  # < 1
 

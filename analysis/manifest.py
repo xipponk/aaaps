@@ -35,7 +35,7 @@ def params_hash() -> str:
 def network_summary(df) -> dict:
     """Min / mean / max of the per-run realised-network columns (net_*) of a runs table."""
     out = {}
-    for c in [c for c in df.columns if c.startswith("net_")]:
+    for c in [c for c in df.columns if c.startswith("net_") and df[c].dtype.kind in "fiub"]:
         v = df[c].dropna()
         out[c] = ({"min": float(v.min()), "mean": float(v.mean()), "max": float(v.max()), "n": int(len(v))}
                   if len(v) else {"n": 0})

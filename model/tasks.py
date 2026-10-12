@@ -1,5 +1,5 @@
 """
-model/tasks.py — TaskObject dataclass.
+model/tasks.py: TaskObject dataclass.
 
 TaskObject is a passive data container representing a single academic or life
 task assigned to a student.

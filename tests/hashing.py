@@ -31,9 +31,12 @@ def agent_table_hash(model) -> str:
 
 
 def run_hashes(args) -> tuple[str, dict]:
-    scenario, seed, mode = args
+    scenario, seed, mode = args[:3]
+    overrides = args[3] if len(args) > 3 else {}
     reset_params()
     try:
+        for key, val in overrides.items():
+            setattr(P, key, val)
         if scenario == "mixed_policy":
             P.COURSES[2]['ai_allowed'] = False
         m = AaapsModel(n_students=P.N_STUDENTS, scenario=scenario, seed=seed, zero_interaction_mode=(mode == "zero_interaction"))
@@ -50,6 +53,6 @@ def run_hashes(args) -> tuple[str, dict]:
             if t in HASH_STEPS:
                 out[f"agents_step_{t}"] = agent_table_hash(m)
         out["random_final"] = _h(repr(m.random.getstate()))
-        return f"{scenario}|{seed}|{mode}", out
+        return f"{scenario}|{seed}|{mode}" + ("|" + ",".join(f"{k}={v}" for k, v in overrides.items()) if overrides else ""), out
     finally:
         reset_params()

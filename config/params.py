@@ -150,6 +150,15 @@ RHO_RATIO: Final[float] = 0.50            # [F] Recovery rate relative to erosio
 LAMBDA_A: Final[float] = 0.00248         # [C] Ability erosion rate; v0.4.1: 21% relative decline of mean retained ability at step 960, permanent universal_access, seeds 1000-1029 (interpolated from outputs/v041/calib_grid.csv, verified 0.2104 in calib_verify); 0.0007 to 0.0059 is the 10 to 35% sensitivity bracket (v0.4 value was 0.0020 before the aspiration and generator fixes)
 
 # =============================================================================
+# Benefit-ability specification study (v0.4.1, preregistration.md A1 to A3)
+# =============================================================================
+
+BENEFIT_ABILITY_SLOPE: Final[float] = 1.0   # [F] k in g = x + (1 - k)*(m - x), x = a_r/100; k = 1 is the original rule (bitwise)
+BENEFIT_MODE: Final[str] = "k"              # [F] "k" (slope family) or "C1" (g = m*(1 - calibration_error), exploratory)
+BENEFIT_PIVOT_OVERRIDE: Final[float | None] = None  # [F] pivot m; None = P1 (sample mean of a_base/100 at t = 0 in the run)
+INITIAL_LEGITIMACY: Final[float] = 0.10     # [F] initial AI legitimacy of every agent (was a literal in agents.py); sensitivity in A3
+
+# =============================================================================
 # Interaction Parameters (ODD §7.7-7.9)
 # =============================================================================
 

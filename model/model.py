@@ -30,6 +30,9 @@ def compute_gini(model: AaapsModel) -> float:
     return (2.0 * cumsum) / (n * total) - (n + 1.0) / n
 
 
+BENEFIT_LOG_STEPS = (1, 120, 240, 360, 480, 600, 720, 840, 960)
+
+
 class AaapsModel(mesa.Model):
     """AaapsModel v0.3: Networked Agent-Based Model of CS students."""
 
@@ -46,6 +49,7 @@ class AaapsModel(mesa.Model):
         seed: int | None = None,
         zero_interaction_mode: bool = False,
         disabled_submodels: frozenset[str] = frozenset(),
+        self_only_mode: bool = False,
     ) -> None:
         super().__init__(seed=seed)
         self.n_students = n_students
@@ -60,7 +64,16 @@ class AaapsModel(mesa.Model):
         unknown = set(disabled_submodels) - {"norms", "aspiration", "market"}
         if unknown:
             raise ValueError(f"unknown submodel(s): {sorted(unknown)}")
+        if self_only_mode and zero_interaction_mode:
+            raise ValueError("self_only_mode and zero_interaction_mode are mutually exclusive")
+        # self_only: peer term of B1 off (no neighbour observation, no random draw for it), ETA_SELF on, aspiration and market off
+        self.self_only_mode = bool(self_only_mode)
+        if self_only_mode:
+            disabled_submodels = frozenset(disabled_submodels) | {"aspiration", "market"}
         self.disabled_submodels = frozenset(disabled_submodels)
+        self.benefit_clip_count = 0
+        self._xbar_sum = 0.0
+        self.g_log: dict[int, float] = {}
 
         # 1. Instantiate Agents across Sections
         agent_list = []
@@ -99,6 +112,10 @@ class AaapsModel(mesa.Model):
             )
             agent_list.append(agent)
             self.agents.add(agent)
+
+        # Pivot m of the benefit family (P1: sample mean of a_base/100 at t = 0 in this run; P.BENEFIT_PIVOT_OVERRIDE for P2)
+        self.benefit_pivot = (P.BENEFIT_PIVOT_OVERRIDE if P.BENEFIT_PIVOT_OVERRIDE is not None
+                              else float(np.mean([a.base_ability for a in agent_list])) / 100.0)
 
         # 2. Network Construction (or Empty Graph if zero-interaction check)
         if self.zero_interaction_mode:
@@ -163,6 +180,11 @@ class AaapsModel(mesa.Model):
 
         # --- Phase E: Data Collection ---
         self.datacollector.collect(self)
+        # Diagnostics for the benefit study (read-only, no random draws): time-average of mean a_r/100 and mean g_k(t)
+        n_ag = max(1, self.n_students)
+        self._xbar_sum += sum(a.retained_ability for a in self.agents) / n_ag / 100.0
+        if self.current_step in BENEFIT_LOG_STEPS:
+            self.g_log[self.current_step] = sum(a.benefit_g()[0] for a in self.agents) / n_ag
 
     # -------------------------------------------------------------------------
     # Phase A: Environment Update
@@ -273,7 +295,11 @@ class AaapsModel(mesa.Model):
         agent_map = {a.unique_id: a for a in student_agents}
 
         # B1. Legitimacy Diffusion (Normative)
-        for a in ([] if "norms" in self.disabled_submodels else student_agents):
+        if self.self_only_mode and "norms" not in self.disabled_submodels:
+            for a in student_agents:
+                u_self = 1.0 if a._ai_used_today else 0.0
+                a.ai_legitimacy = float(np.clip(a.ai_legitimacy + P.ETA_SELF * u_self * (1.0 - a.ai_legitimacy), 0.0, 1.0))
+        for a in ([] if ("norms" in self.disabled_submodels or self.self_only_mode) else student_agents):
             nbrs = list(self.social_network.neighbors(a.unique_id))
             if not nbrs:
                 continue
