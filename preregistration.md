@@ -152,3 +152,47 @@ share are reported per run (v0.4.1 writes them to the manifest).
   density-controlled 4-point sweep at expected degree 12 is exploratory.
 - Run-time safeguards added to every runner: parameters are reset before each job (reset_params), and the realised network
   (attempts, disconnected rejects, k_bar, within-section share) is written with every run.
+
+### A3 (Gate 5 reply; written and committed before any v0.4.1 confirmatory run; seeds 7000-7099 still unused)
+Code state when written: LAMBDA_A = 0.00248, aspiration option B, SBM generator with connectivity-only retry (commits up to 1bf837e).
+The benefit family, self_only mode, C1, L0 parameter and the confirmatory runner are NOT implemented at this point; they are
+implemented after this amendment and the analysis script are committed.
+1. Decomposition of interaction. Wherever the plan speaks of "the effect of interaction" the full minus zero_interaction
+   difference is split into social = full - self_only and individual = self_only - zero_interaction, each with its own paired
+   CI. self_only = ETA peer term off (no neighbour observation, no random draw for it), ETA_SELF on, aspiration off, market off,
+   network built but unused. The interaction clause of section 7 is applied to full - zero_interaction, social and individual
+   separately. "Emergent" is claimed only for the social part. Share of the interaction effect that is individual =
+   individual / (full - zero), reported only where the full - zero difference is interaction-driven (CI95 beyond SESOI).
+2. H_self (section 8) uses the implemented self_only mode, not the no_peer_norms proxy used in the exploratory Gate 5 reading.
+   S = (D_self - D_zero)/(D_full - D_zero) per resample as ratio of resample means. The condition "|D_full - D_zero| beyond SESOI"
+   is read as: the 95% CI of D_full - D_zero lies entirely above +0.02 or entirely below -0.02. All bootstrap resamples use ONE
+   shared index matrix (numpy default_rng(20261016).integers(0, 100, (10000, 100))) for every condition, scenario and statistic,
+   so every contrast is paired and every k-dependent quantity (k*) uses the same resample.
+3. Sensitivity to the initial legitimacy L0 (exploratory): L0 in {0.05, 0.10, 0.20, 0.30} x {full, self_only, zero_interaction},
+   free_market, k = 1, seeds 7000-7099. L0 = 0.10 reuses the block K rows (identical by the regression test); the other three
+   values are run. Reported per L0: D_full, D_self, D_zero, S with CI. L0 is a new tagged parameter INITIAL_LEGITIMACY [F]
+   (previously a literal at agents.py:113).
+4. Not in the Sobol set: PROSOCIALITY_BETA_A (Morris composite 0.359) and CONFORMITY_BETA_B (0.329) lie above the 0.3 noise
+   floor but outside the top 12, by the fixed retained-set rule (top 10 plus forced LAMBDA_A and RHO_RATIO, filled to 12).
+   Their Sobol indices do not exist and no statement is made about them beyond the Morris values.
+5. Run blocks (all seeds 7000-7099, runner analysis/run_confirmatory.py, outputs/v041_conf/<block>_runs.csv):
+   K: k in {1, 0.5, 0, -0.5, -1} x {free_market, mixed_policy, targeted_subsidy, universal_access, universal_permanent} x
+   {full, self_only, zero_interaction}, pivot P1 (m = mean a_base/100 at t = 0 in the run), plus baseline once (full, k = 1):
+   7,600 runs. P2: k in {0, -1} x {free_market, universal_permanent}, full, pivot m = time average of mean a_r/100 over steps
+   1..960 of the k = 1 full run of the same scenario and seed: 400 runs. ABL: quality only (AI_SPEED_BOOST all 0) and speed only
+   (AI_QUALITY_BOOST all 0), k = 1, {free_market, universal_permanent}, {full, zero_interaction}: 800 runs. C1: g_c = m*(1 - c),
+   five AI scenarios x {full, zero_interaction}: 1,000 runs. NET: free_market, k = 1, one-at-a-time 17 points as in A2 x
+   {full, no_norms}: 3,400 runs, plus the density-controlled points (SBM_P_WITHIN, SBM_P_BETWEEN) = (0.282, 0.005), (0.231, 0.015),
+   (0.154, 0.03), (0.077, 0.045) x {full, no_norms}: 800 runs. L0: 900 runs. Total 14,900.
+6. Per-run outputs written: all production metrics, per-tercile score, dependency, calibration error, relative decline and
+   misses, G, mean g_k at steps 1, 120, 240, 360, 480, 600, 720, 840, 960, the clip count, the time-averaged mean a_r/100, the
+   pivot used, and the realised network (attempts, k_bar, within-section share).
+7. Confirmatory vs exploratory. CONFIRMATORY: the Holm family of section 6, the narratives of section 7 and the interaction
+   clause evaluated as in item 1, H_self (section 8) and the network sweep corroboration (section 8). EXPLORATORY: everything
+   else (all other scenarios and outcomes, P2, ablations, C1, density-controlled sweep, L0 sensitivity, diagnostics).
+8. Analysis script: analysis/confirmatory_analysis.py. It is committed with this amendment and tested on synthetic data with
+   the same schema before the first run. It is run once on the complete outputs and writes results_confirmatory.md and
+   outputs/v041_conf/results/*.csv. Its sha256 is written to the runner manifests. If it must be changed after the first
+   confirmatory run, the changed version is labelled exploratory and the original output is kept.
+9. Pipeline safeguards: the pipeline stops on any failing test (including the bitwise regression at k = 1 and L0 = 0.10), any
+   RuntimeError or Traceback, or less than 20 GB free disk.
