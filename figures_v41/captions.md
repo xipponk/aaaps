@@ -67,9 +67,9 @@ All figures: `analysis/figures_v41.py` (reads saved CSVs only, no simulation), P
 - Claim supported: the two boost channels have opposite signs on E_G; the observed variance of the local AI-use fraction is close to that of independent neighbours with the same tie weights (ratio about 1.03 to 1.06).
 - Limits: (c) uses five seeds of one scenario; the reference assumes independent Bernoulli neighbours with probability p (raw) or 0.7 p (observed), which is a null model, and weights are exact (rebuilt, not stepped networks). Panel (c) is not evidence for or against any mechanism by itself.
 
-## F10 Decline and dependency by k (`F10_decline_dependency_by_k`)
+## FA Appendix: invariance of decline and dependency to k (`FA_k_invariance`)
 - Data: `K_runs.csv`, mode full, five scenarios, five k values; CI by the figure script.
-- Seeds: 7000-7099. Status: co-primary scenarios confirmatory data, other three exploratory (dashed).
+- Seeds: 7000-7099. Status: co-primary scenarios confirmatory data, other three exploratory (dashed). Appendix figure.
 - Values: decline varies by at most 0.0004 over k within a scenario (free market 0.1048 to 0.1050; universal permanent 0.2080 to 0.2083); dependency by at most 0.001 (free market 0.2308 to 0.2313).
-- Claim supported: k changes the benefit to score only; dependency and decline are constant in k, so the k sweep isolates the score channel.
-- Limits: the constancy is a property of the model structure (k enters only the benefit g), not an empirical finding about students.
+- What it shows: dependency and decline do not change with k. This follows from the model structure (k enters only the benefit g that converts AI use into score) and is not a finding about students. The figure documents that the k sweep changes the score channel only.
+- Limits: it is a check of the implementation and design, not evidence about behaviour.

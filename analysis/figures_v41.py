@@ -1,5 +1,5 @@
 """
-analysis/figures_v41.py: figures for paper v4 (F0 to F10), built from saved CSVs only. No simulation is run.
+analysis/figures_v41.py: figures for paper v4 (F0 to F9 and appendix FA), built from saved CSVs only. No simulation is run.
     python -m analysis.figures_v41
 Writes figures_v41/<name>.png (300 dpi) and .pdf. No figure titles. One colour per scenario in every figure (Okabe-Ito).
 Confidence intervals use the shared bootstrap index matrix of the confirmatory analysis, default_rng(20261016).integers(0, 100, (10000, 100)),
@@ -399,8 +399,8 @@ def f9():
     # panels a and b of F9 are F9a, panel c is F9b
 
 
-# ---------------------------------------------------------------- F10
-def f10():
+# ---------------------------------------------------------------- FA (appendix)
+def fa():
     K = runs("K")
     fig, axs = plt.subplots(1, 2, figsize=(7.2, 2.8))
     ks = [-1.0, -0.5, 0.0, 0.5, 1.0]
@@ -417,10 +417,10 @@ def f10():
     axs[1].legend(frameon=False, loc="lower right", fontsize=6)
     fig.text(0.5, -0.03, "Mode full. Seeds 7000-7099, 95% bootstrap CI. Solid: co-primary scenarios; dashed: exploratory.", ha="center", fontsize=6.5, color="#444444")
     fig.tight_layout()
-    save(fig, "F10_decline_dependency_by_k")
+    save(fig, "FA_k_invariance")
 
 
 if __name__ == "__main__":
     os.makedirs(FIG, exist_ok=True)
-    for f in (f0, f1, f2, f3, f4, f56, f7, f8, f9, f10):
+    for f in (f0, f1, f2, f3, f4, f56, f7, f8, f9, fa):
         f()
