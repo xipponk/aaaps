@@ -33,13 +33,16 @@ def agent_table_hash(model) -> str:
 def run_hashes(args) -> tuple[str, dict]:
     scenario, seed, mode = args[:3]
     overrides = args[3] if len(args) > 3 else {}
+    log_local = bool(overrides.get("__log_local__", False))
     reset_params()
     try:
         for key, val in overrides.items():
-            setattr(P, key, val)
+            if key != "__log_local__":
+                setattr(P, key, val)
         if scenario == "mixed_policy":
             P.COURSES[2]['ai_allowed'] = False
-        m = AaapsModel(n_students=P.N_STUDENTS, scenario=scenario, seed=seed, zero_interaction_mode=(mode == "zero_interaction"))
+        m = AaapsModel(n_students=P.N_STUDENTS, scenario=scenario, seed=seed, zero_interaction_mode=(mode == "zero_interaction"),
+                       log_local_fraction=log_local)
         for a in m.agents:
             wtp = a.monthly_budget * P.TIER_BUDGET_FRACTION[a.SES]
             a.ai_tier = 3 if wtp >= P.AI_MONTHLY_COST[3] else 2 if wtp >= P.AI_MONTHLY_COST[2] else 1

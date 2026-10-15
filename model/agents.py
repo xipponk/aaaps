@@ -195,7 +195,7 @@ class StudentAgent(mesa.Agent):
                 self._ai_used_today = True
 
             # Effective intelligence (ODD §7.1)
-            eff_boost = P.AI_SPEED_BOOST[effective_tier] * u_t if task.ai_allowed else 0.0
+            eff_boost = P.AI_SPEED_BOOST[effective_tier] * P.AI_SPEED_SCALE * u_t if task.ai_allowed else 0.0
             effective_intelligence = self.retained_ability + eff_boost
 
             # Processing time & progress delta (v0.2/ODD §7.1 formulation)
@@ -238,7 +238,7 @@ class StudentAgent(mesa.Agent):
                 g, clipped = self.benefit_g()
                 if clipped:
                     self.model.benefit_clip_count += 1
-                quality_mult = 1.0 + P.AI_QUALITY_BOOST[effective_tier] * u_t * g
+                quality_mult = 1.0 + P.AI_QUALITY_BOOST[effective_tier] * P.AI_QUALITY_SCALE * u_t * g
                 score = min(P.SCORE_CAP, task.base_score * quality_mult)
                 
                 if task.deadline_remaining > 0:

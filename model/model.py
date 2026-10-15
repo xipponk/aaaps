@@ -50,6 +50,7 @@ class AaapsModel(mesa.Model):
         zero_interaction_mode: bool = False,
         disabled_submodels: frozenset[str] = frozenset(),
         self_only_mode: bool = False,
+        log_local_fraction: bool = False,
     ) -> None:
         super().__init__(seed=seed)
         self.n_students = n_students
@@ -71,6 +72,9 @@ class AaapsModel(mesa.Model):
         if self_only_mode:
             disabled_submodels = frozenset(disabled_submodels) | {"aspiration", "market"}
         self.disabled_submodels = frozenset(disabled_submodels)
+        # D1 diagnostic (read-only, no random draws): per step, per agent, the weighted share of neighbours the B1 peer term sees
+        self._log_local = bool(log_local_fraction)
+        self.local_log = {"obs": [], "raw": [], "glob": [], "deg": None} if self._log_local else None
         self.benefit_clip_count = 0
         self._xbar_sum = 0.0
         self.g_log: dict[int, float] = {}
@@ -299,6 +303,14 @@ class AaapsModel(mesa.Model):
             for a in student_agents:
                 u_self = 1.0 if a._ai_used_today else 0.0
                 a.ai_legitimacy = float(np.clip(a.ai_legitimacy + P.ETA_SELF * u_self * (1.0 - a.ai_legitimacy), 0.0, 1.0))
+        if self._log_local:
+            order = sorted(agent_map)
+            pos = {uid: i for i, uid in enumerate(order)}
+            log_obs = np.full(len(order), np.nan)
+            log_raw = np.full(len(order), np.nan)
+            self.local_log["glob"].append(float(np.mean([snapshot[u]['ai_used_today'] for u in order])))
+            if self.local_log["deg"] is None:
+                self.local_log["deg"] = np.array([len(list(self.social_network.neighbors(u))) for u in order])
         for a in ([] if ("norms" in self.disabled_submodels or self.self_only_mode) else student_agents):
             nbrs = list(self.social_network.neighbors(a.unique_id))
             if not nbrs:
@@ -306,17 +318,27 @@ class AaapsModel(mesa.Model):
 
             obs_sum = 0.0
             weight_sum = 0.0
+            raw_sum = 0.0
             for nbr_id in nbrs:
                 w = self.social_network[a.unique_id][nbr_id]['tie_strength']
+                if snapshot[nbr_id]['ai_used_today']:
+                    raw_sum += w
                 if snapshot[nbr_id]['ai_used_today'] and self.random.random() < P.P_VISIBLE:
                     obs_sum += w
                 weight_sum += w
 
             observed_frac = obs_sum / max(1e-6, weight_sum)
+            if self._log_local:
+                log_obs[pos[a.unique_id]] = observed_frac
+                log_raw[pos[a.unique_id]] = raw_sum / max(1e-6, weight_sum)
             u_self = 1.0 if a._ai_used_today else 0.0
 
             l_next = a.ai_legitimacy + P.ETA * a.conformity * (observed_frac - a.ai_legitimacy) + P.ETA_SELF * u_self * (1.0 - a.ai_legitimacy)
             a.ai_legitimacy = float(np.clip(l_next, 0.0, 1.0))
+
+        if self._log_local:
+            self.local_log["obs"].append(log_obs)
+            self.local_log["raw"].append(log_raw)
 
         # B2. Aspiration Adjustment (Comparative)
         for a in ([] if "aspiration" in self.disabled_submodels else student_agents):

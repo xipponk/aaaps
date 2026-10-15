@@ -138,6 +138,10 @@ AI_QUALITY_BOOST: Final[dict[int, float]] = {
     3: 0.50,    # [K]
 }
 
+# A4 (exploratory channel-ratio sweep): multipliers on the two boost channels. 1.0 leaves the model bitwise unchanged.
+AI_QUALITY_SCALE: Final[float] = 1.0      # [F] Multiplier on AI_QUALITY_BOOST (analysis only; default 1.0)
+AI_SPEED_SCALE: Final[float] = 1.0        # [F] Multiplier on AI_SPEED_BOOST (analysis only; default 1.0)
+
 # =============================================================================
 # Coupled Dynamics Parameters (ODD §7.4 / §10 #5)
 # =============================================================================
