@@ -1,0 +1,3 @@
+scenario,E_G_k0,relative,p_H0,TOST_equiv,CI90,Holm_reject_H0
+universal_permanent,"-1042.1 [-1106.0, -979.1]",-0.072671961585749,1.0,False,"[-1096.2, -988.7]",False
+free_market,"-82.6 [-150.6, -16.4]",-0.005761485063513684,1.0,True,"[-138.9, -27.0]",False

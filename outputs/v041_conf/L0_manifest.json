@@ -1,0 +1,244 @@
+{
+  "git_hash": "57fe46ce51fa6b03aa9a4708374c71cf963baa05",
+  "git_branch": "v0.4-recovery-fix",
+  "git_dirty": false,
+  "params_hash": "8c958d5978eae30b",
+  "params": {
+    "ABILITY_CLAMP": [
+      10.0,
+      100.0
+    ],
+    "ABILITY_MEAN": 50.0,
+    "ABILITY_STD": 15.0,
+    "AI_MONTHLY_COST": {
+      "0": 0,
+      "1": 0,
+      "2": 600,
+      "3": 1800
+    },
+    "AI_MONTHLY_QUOTA": {
+      "0": 0,
+      "1": 100,
+      "2": 300,
+      "3": 800
+    },
+    "AI_QUALITY_BOOST": {
+      "0": 0.0,
+      "1": 0.05,
+      "2": 0.2,
+      "3": 0.5
+    },
+    "AI_SPEED_BOOST": {
+      "0": 0,
+      "1": 5,
+      "2": 15,
+      "3": 35
+    },
+    "ALPHA_D": 0.012,
+    "ASPIRATION_GAP_WEIGHT": 0.2,
+    "BENEFIT_ABILITY_SLOPE": 1.0,
+    "BENEFIT_MODE": "k",
+    "BENEFIT_PIVOT_OVERRIDE": null,
+    "BETA_C": 0.01,
+    "BORROW_SUBSTITUTION": 0.6,
+    "BUDGET_PARAMS": {
+      "low": {
+        "mean": 4000.0,
+        "std": 700.0
+      },
+      "mid": {
+        "mean": 11000.0,
+        "std": 2000.0
+      },
+      "high": {
+        "mean": 27000.0,
+        "std": 4000.0
+      }
+    },
+    "CONFORMITY_BETA_A": 2.0,
+    "CONFORMITY_BETA_B": 5.0,
+    "COURSES": [
+      {
+        "id": "C1",
+        "name": "Theory/Lecture",
+        "difficulty_range": [
+          7,
+          9
+        ],
+        "ai_allowed": false,
+        "assessment": "exam",
+        "lambda_tasks": 0.07142857142857142,
+        "deadline_days": 30
+      },
+      {
+        "id": "C2",
+        "name": "Programming Project",
+        "difficulty_range": [
+          6,
+          8
+        ],
+        "ai_allowed": true,
+        "assessment": "project",
+        "lambda_tasks": 0.14285714285714285,
+        "deadline_days": 14
+      },
+      {
+        "id": "C3",
+        "name": "Lab/Practical",
+        "difficulty_range": [
+          4,
+          6
+        ],
+        "ai_allowed": "random_50pct",
+        "assessment": "lab",
+        "lambda_tasks": 0.2857142857142857,
+        "deadline_days": 7
+      },
+      {
+        "id": "C4",
+        "name": "Easy Elective",
+        "difficulty_range": [
+          2,
+          4
+        ],
+        "ai_allowed": true,
+        "assessment": "mixed",
+        "lambda_tasks": 0.21428571428571427,
+        "deadline_days": 10
+      },
+      {
+        "id": "C5",
+        "name": "Seminar/Research",
+        "difficulty_range": [
+          8,
+          10
+        ],
+        "ai_allowed": true,
+        "assessment": "report",
+        "lambda_tasks": 0.04285714285714286,
+        "deadline_days": 45
+      }
+    ],
+    "DELTA_D": 0.005,
+    "DIFFICULTY_MULTIPLIER_BASE": 1.0,
+    "DIFFICULTY_MULTIPLIER_INCREMENT": 0.08,
+    "DRAIN_RATE": {
+      "0": 0,
+      "1": 1,
+      "2": 3,
+      "3": 8
+    },
+    "ETA": 0.08,
+    "ETA_SELF": 0.03,
+    "GAMMA_C": 0.05,
+    "HOMOPHILY_ABILITY": 0.25,
+    "HOMOPHILY_SES": 0.2,
+    "INITIAL_LEGITIMACY": 0.1,
+    "KAPPA": 0.1,
+    "LAMBDA_A": 0.00248,
+    "LAMBDA_LIFE": 0.04285714285714286,
+    "LOW_THRESHOLD": 50.0,
+    "N_SECTIONS": 6,
+    "N_SEMESTERS": 8,
+    "N_SLOTS_BASE": 2,
+    "N_SLOTS_DIVISOR": 20.0,
+    "N_STUDENTS": 240,
+    "PROCESSING_DIFFICULTY_FACTOR": 30.0,
+    "PROSOCIALITY_BETA_A": 2.0,
+    "PROSOCIALITY_BETA_B": 2.0,
+    "P_VISIBLE": 0.7,
+    "RHO_RATIO": 0.5,
+    "SBM_P_BETWEEN": 0.015,
+    "SBM_P_WITHIN": 0.18,
+    "SCORE_CAP": 100.0,
+    "SES_RATIO": {
+      "low": 0.3,
+      "mid": 0.5,
+      "high": 0.2
+    },
+    "SHAREABLE_SEATS": {
+      "0": 0,
+      "1": 0,
+      "2": 1,
+      "3": 2
+    },
+    "SR_ABILITY_WEIGHT": 0.34,
+    "SR_NOISE_WEIGHT": 0.55,
+    "STEPS_PER_SEMESTER": 120,
+    "STUDENTS_PER_SECTION": 40,
+    "TARGET_K_BAR_RANGE": [
+      2.0,
+      30.0
+    ],
+    "TIER_BUDGET_FRACTION": {
+      "low": 0.05,
+      "mid": 0.1,
+      "high": 0.15
+    },
+    "TIE_STRENGTH_BETA_A": 2.0,
+    "TIE_STRENGTH_BETA_B": 2.0,
+    "TOPUP_AMOUNT": 100.0,
+    "TOPUP_COST": {
+      "2": 200,
+      "3": 180
+    },
+    "TOTAL_STEPS": 960,
+    "URGENCY_WEIGHT": 0.3,
+    "W_SCORE_MAX": 0.95,
+    "W_SCORE_MIN": 0.2
+  },
+  "python_executable": "/home/tuul/projects/aaaps/.venv/bin/python",
+  "python_version": "3.11.15 (main, May  8 2026, 18:33:10) [Clang 22.1.3 ]",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+  "versions": {
+    "mesa": "2.3.0",
+    "numpy": "2.4.6",
+    "pandas": "3.0.3",
+    "scipy": "1.17.1",
+    "networkx": "3.6.1",
+    "SALib": "1.5.2",
+    "joblib": "1.5.3"
+  },
+  "written_utc": "2026-10-12T20:03:14.704906+00:00",
+  "stage": "confirmatory_L0",
+  "seeds": [
+    7000,
+    7099
+  ],
+  "n_students": 240,
+  "n_runs": 900,
+  "sampler": "none (paired seeds)",
+  "analysis_script_sha256": "8908021ded52dcaa934a62b7814907598056607c242ae749c3e520f2f44dbe97",
+  "network": {
+    "net_attempts": {
+      "min": 1.0,
+      "mean": 1.03,
+      "max": 2.0,
+      "n": 600
+    },
+    "net_disconnected_rejects": {
+      "min": 0.0,
+      "mean": 0.03,
+      "max": 1.0,
+      "n": 600
+    },
+    "net_k_bar": {
+      "min": 9.541666666666666,
+      "mean": 10.069166666666666,
+      "max": 10.641666666666667,
+      "n": 600
+    },
+    "net_within_section_share": {
+      "min": 0.5533498759305211,
+      "mean": 0.587992458252456,
+      "max": 0.6256281407035176,
+      "n": 600
+    },
+    "net_kbar_in_range": {
+      "min": 1.0,
+      "mean": 1.0,
+      "max": 1.0,
+      "n": 600
+    }
+  }
+}

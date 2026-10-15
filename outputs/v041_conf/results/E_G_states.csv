@@ -1,0 +1,26 @@
+scenario,k,E_G,relative,state,label
+free_market,1.0,"231.6 [157.6, 302.2]",0.016148422786759223,not present at k = 1,confirmatory-rule
+free_market,0.5,"89.2 [23.4, 151.9]",0.006222616379455569,"n/a (E_G(s,1) not present)",confirmatory-rule
+free_market,0.0,"-82.6 [-150.6, -16.4]",-0.005761485063513684,"n/a (E_G(s,1) not present)",confirmatory-rule
+free_market,-0.5,"-243.8 [-314.2, -177.6]",-0.01700538349169448,"n/a (E_G(s,1) not present)",confirmatory-rule
+free_market,-1.0,"-437.6 [-512.9, -363.3]",-0.03052065898943565,"n/a (E_G(s,1) not present)",confirmatory-rule
+mixed_policy,1.0,"231.0 [171.9, 290.1]",0.016112442205591635,not present at k = 1,exploratory
+mixed_policy,0.5,"94.8 [37.8, 152.7]",0.006612973678436307,"n/a (E_G(s,1) not present)",exploratory
+mixed_policy,0.0,"-50.7 [-113.1, 10.7]",-0.003532366361071231,"n/a (E_G(s,1) not present)",exploratory
+mixed_policy,-0.5,"-194.3 [-252.2, -137.4]",-0.013549187992243163,"n/a (E_G(s,1) not present)",exploratory
+mixed_policy,-1.0,"-298.8 [-357.9, -238.6]",-0.020839859226300276,"n/a (E_G(s,1) not present)",exploratory
+targeted_subsidy,1.0,"464.7 [394.2, 533.3]",0.03240818787194311,not present at k = 1,exploratory
+targeted_subsidy,0.5,"193.8 [124.2, 261.7]",0.013514852195993294,"n/a (E_G(s,1) not present)",exploratory
+targeted_subsidy,0.0,"-8.7 [-81.2, 60.1]",-0.0006044299999872548,"n/a (E_G(s,1) not present)",exploratory
+targeted_subsidy,-0.5,"-245.0 [-314.9, -177.2]",-0.017083887386725033,"n/a (E_G(s,1) not present)",exploratory
+targeted_subsidy,-1.0,"-465.0 [-541.5, -390.6]",-0.03242767383606534,"n/a (E_G(s,1) not present)",exploratory
+universal_access,1.0,"458.0 [396.3, 518.4]",0.031939703891061606,not present at k = 1,exploratory
+universal_access,0.5,"46.9 [-16.9, 109.8]",0.0032705221914700266,"n/a (E_G(s,1) not present)",exploratory
+universal_access,0.0,"-412.4 [-479.8, -346.1]",-0.02876306822575953,"n/a (E_G(s,1) not present)",exploratory
+universal_access,-0.5,"-853.5 [-918.0, -788.4]",-0.05952236412888146,"n/a (E_G(s,1) not present)",exploratory
+universal_access,-1.0,"-1254.3 [-1326.7, -1182.2]",-0.08746941185668737,"n/a (E_G(s,1) not present)",exploratory
+universal_permanent,1.0,"224.5 [165.3, 282.6]",0.01565381662896373,not present at k = 1,confirmatory-rule
+universal_permanent,0.5,"-383.3 [-444.7, -322.3]",-0.0267291578845691,"n/a (E_G(s,1) not present)",confirmatory-rule
+universal_permanent,0.0,"-1042.1 [-1106.0, -979.1]",-0.072671961585749,"n/a (E_G(s,1) not present)",confirmatory-rule
+universal_permanent,-0.5,"-1666.8 [-1735.0, -1601.1]",-0.11623785338528876,"n/a (E_G(s,1) not present)",confirmatory-rule
+universal_permanent,-1.0,"-2303.2 [-2374.6, -2232.0]",-0.16061868166530022,"n/a (E_G(s,1) not present)",confirmatory-rule

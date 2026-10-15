@@ -1,0 +1,6 @@
+scenario,k_star,CI95_over_crossing_resamples,share_no_crossing,max_dev_from_line,linearity_flag,label
+free_market,0.240,"[0.053, 0.426]",0.0,26.49940696137574,True,confirmatory-rule
+mixed_policy,0.174,"[-0.033, 0.369]",0.0,27.924736620604506,True,exploratory
+targeted_subsidy,0.021,"[-0.123, 0.190]",0.0,38.492437842495775,False,exploratory
+universal_access,0.449,"[0.384, 0.520]",0.0,27.319999512667664,False,exploratory
+universal_permanent,0.815,"[0.770, 0.861]",0.0,24.164153200003625,True,confirmatory-rule
