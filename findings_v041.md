@@ -437,17 +437,17 @@ Per seed:
 | 8103 | 240 | 0.34663 | 0.02571 | 0.03148 | 0.02564 | 0.15642 | 0.13937 | 0.89629 | 0.14433 | 0.26410 |
 | 8104 | 240 | 0.34938 | 0.02668 | 0.03399 | 0.02686 | 0.16136 | 0.14689 | 0.90432 | 0.15033 | 0.27455 |
 
-### 9.4 D1 reference variances matched to each definition (analysis/d1_reference.py, written after Gate 7, reads saved D1 data only)
-Definitions in model.py:319-333: observed_frac = sum of tie strengths of neighbours with AI use that passed the P_VISIBLE draw, divided by the total tie strength of all neighbours; raw = the same without the draw.
-D1 reference variances (EXPLORATORY), seeds ['8100', '8101', '8102', '8103', '8104'], P_VISIBLE = 0.7, tie strength Beta(2.0, 2.0): mean 0.500, variance 0.0500, approximate weighting factor 1 + CV^2 = 1.200.
-| steps | p | var_raw | ref_raw_unweighted | ref_raw_weighted_approx | ratio_raw_to_unweighted | ratio_raw_to_weighted | var_obs | ref_obs_unweighted | ref_obs_weighted_approx | ratio_obs_to_unweighted | ratio_obs_to_weighted |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1-120 | 0.33997 | 0.03229 | 0.02560 | 0.03073 | 1.26116 | 1.05097 | 0.02571 | 0.02077 | 0.02493 | 1.23762 | 1.03135 |
-| 121-240 | 0.34549 | 0.03299 | 0.02603 | 0.03123 | 1.26750 | 1.05625 | 0.02598 | 0.02111 | 0.02534 | 1.23029 | 1.02524 |
-| 241-360 | 0.34970 | 0.03259 | 0.02618 | 0.03141 | 1.24504 | 1.03754 | 0.02611 | 0.02129 | 0.02555 | 1.22617 | 1.02181 |
-| 361-480 | 0.35160 | 0.03308 | 0.02625 | 0.03151 | 1.26013 | 1.05011 | 0.02626 | 0.02138 | 0.02565 | 1.22835 | 1.02362 |
-| 481-600 | 0.35464 | 0.03317 | 0.02635 | 0.03163 | 1.25848 | 1.04873 | 0.02636 | 0.02150 | 0.02580 | 1.22598 | 1.02165 |
-| 601-720 | 0.35631 | 0.03346 | 0.02641 | 0.03169 | 1.26675 | 1.05563 | 0.02669 | 0.02157 | 0.02588 | 1.23744 | 1.03120 |
-| 721-840 | 0.35794 | 0.03356 | 0.02646 | 0.03175 | 1.26812 | 1.05677 | 0.02665 | 0.02163 | 0.02596 | 1.23184 | 1.02654 |
-| 841-960 | 0.36037 | 0.03368 | 0.02654 | 0.03185 | 1.26881 | 1.05734 | 0.02697 | 0.02173 | 0.02608 | 1.24093 | 1.03410 |
-| 1-960 | 0.35200 | 0.03310 | 0.02623 | 0.03148 | 1.26202 | 1.05168 | 0.02634 | 0.02137 | 0.02565 | 1.23233 | 1.02694 |
+### 9.4 D1 reference variances matched to each definition, exact tie-strength weighting (analysis/d1_reference.py, EXPLORATORY, reads saved D1 data and the tie strengths of the re-constructed, never stepped, networks of seeds 8100-8104)
+Definitions in model.py:319-333: observed_frac = sum of tie strengths of neighbours with AI use that passed the P_VISIBLE draw, divided by the total tie strength of all neighbours; raw = the same without the draw. Reference: ref_exact = mean over agents of q(1-q) * sum(w^2)/(sum w)^2 (q = p_t for raw, q = P_VISIBLE * p_t for obs), p_t = global share of AI use at the step. The re-constructed degrees were asserted equal to the saved D1 degrees for all five seeds. The approximate columns (factor 1.2) of the earlier version are kept for comparison. Per-step values: outputs/v041_a4/results/d1_reference_steps.csv (steps 1 and 2 have p = 0, ratio undefined).
+D1 reference variances (EXPLORATORY), seeds ['8100', '8101', '8102', '8103', '8104'], P_VISIBLE = 0.7, tie strength Beta(2.0, 2.0): mean 0.500, variance 0.0500, approximate weighting factor 1 + CV^2 = 1.200; exact mean over agents of d_i * sum(w^2)/(sum w)^2 = 1.1969 (min 1.000, max 2.045).
+| steps | p | var_raw | ref_raw_unweighted | ref_raw_weighted_approx | ratio_raw_to_unweighted | ratio_raw_to_weighted | var_obs | ref_obs_unweighted | ref_obs_weighted_approx | ref_raw_exact | ref_obs_exact | ratio_raw_to_exact | ratio_obs_to_exact | ratio_obs_to_unweighted | ratio_obs_to_weighted |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1-120 | 0.33997 | 0.03229 | 0.02560 | 0.03073 | 1.26116 | 1.05097 | 0.02571 | 0.02077 | 0.02493 | 0.03052 | 0.02476 | 1.05806 | 1.03827 | 1.23762 | 1.03135 |
+| 121-240 | 0.34549 | 0.03299 | 0.02603 | 0.03123 | 1.26750 | 1.05625 | 0.02598 | 0.02111 | 0.02534 | 0.03102 | 0.02517 | 1.06338 | 1.03213 | 1.23029 | 1.02524 |
+| 241-360 | 0.34970 | 0.03259 | 0.02618 | 0.03141 | 1.24504 | 1.03754 | 0.02611 | 0.02129 | 0.02555 | 0.03120 | 0.02538 | 1.04455 | 1.02869 | 1.22617 | 1.02181 |
+| 361-480 | 0.35160 | 0.03308 | 0.02625 | 0.03151 | 1.26013 | 1.05011 | 0.02626 | 0.02138 | 0.02565 | 0.03129 | 0.02548 | 1.05726 | 1.03059 | 1.22835 | 1.02362 |
+| 481-600 | 0.35464 | 0.03317 | 0.02635 | 0.03163 | 1.25848 | 1.04873 | 0.02636 | 0.02150 | 0.02580 | 0.03141 | 0.02563 | 1.05585 | 1.02857 | 1.22598 | 1.02165 |
+| 601-720 | 0.35631 | 0.03346 | 0.02641 | 0.03169 | 1.26675 | 1.05563 | 0.02669 | 0.02157 | 0.02588 | 0.03148 | 0.02571 | 1.06281 | 1.03821 | 1.23744 | 1.03120 |
+| 721-840 | 0.35794 | 0.03356 | 0.02646 | 0.03175 | 1.26812 | 1.05677 | 0.02665 | 0.02163 | 0.02596 | 0.03154 | 0.02578 | 1.06394 | 1.03350 | 1.23184 | 1.02654 |
+| 841-960 | 0.36037 | 0.03368 | 0.02654 | 0.03185 | 1.26881 | 1.05734 | 0.02697 | 0.02173 | 0.02608 | 0.03164 | 0.02590 | 1.06454 | 1.04114 | 1.24093 | 1.03410 |
+| 1-960 | 0.35200 | 0.03310 | 0.02623 | 0.03148 | 1.26202 | 1.05168 | 0.02634 | 0.02137 | 0.02565 | 0.03126 | 0.02548 | 1.05882 | 1.03389 | 1.23233 | 1.02694 |
