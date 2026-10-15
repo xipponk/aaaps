@@ -1,0 +1,5 @@
+scenario,quantity,point_estimate,CI95_over_resamples_with_crossing,share_resamples_no_crossing
+universal_permanent,E_G(k=1) vs +SESOI,"rises through at theta = 0.555, ratio mq/ms = 1.250","theta [0.549, 0.562], ratio [1.217, 1.281]",0.0
+universal_permanent,E_G(k=0) vs -SESOI,"rises through at theta = 0.533, ratio mq/ms = 1.142","theta [0.526, 0.540], ratio [1.110, 1.172]",0.0
+free_market,E_G(k=1) vs +SESOI,"rises through at theta = 0.646, ratio mq/ms = 1.828","theta [0.629, 0.664], ratio [1.696, 1.975]",0.0
+free_market,E_G(k=0) vs -SESOI,no crossing (E_G(k=0) above -SESOI at every level),n/a,1.0
