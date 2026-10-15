@@ -196,3 +196,41 @@ implemented after this amendment and the analysis script are committed.
    confirmatory run, the changed version is labelled exploratory and the original output is kept.
 9. Pipeline safeguards: the pipeline stops on any failing test (including the bitwise regression at k = 1 and L0 = 0.10), any
    RuntimeError or Traceback, or less than 20 GB free disk.
+
+### A4 (Gate 6 reply; written and committed before any A4 run; seeds 8000-8104 unused; entirely post hoc and exploratory)
+Status. A4 is decided after the confirmatory results (results_confirmatory.md, commit b687677) and after the channel ablations
+(quality only, speed only, k = 1, seeds 7000-7099) were seen. It has no hypothesis, no Holm family and no confirmatory claim. The
+choice of levels and of the direction of the sweep follows from those ablations. Every number it produces is reported as exploratory.
+1. Parameters. AI_QUALITY_SCALE (mq) multiplies AI_QUALITY_BOOST and AI_SPEED_SCALE (ms) multiplies AI_SPEED_BOOST, both for all tiers,
+   both tagged [F] in config/params.py with default 1.0. At 1.0 the model is bitwise unchanged (tested against tests/ref_hashes_v041.json).
+2. Levels (mq, ms; quality-to-speed ratio relative to the default is mq/ms): R0 (0, 1; 0), R1 (0.25, 1; 0.25), R2 (0.5, 1; 0.5), R3 (1, 1; 1,
+   default), R4 (1, 0.5; 2), R5 (1, 0.25; 4), R6 (1, 0; infinity). Scaling one channel also changes the total size of the boost, so level
+   comparisons are confounded with magnitude; that is why the report carries the mean score gain and g_mean_960 per level.
+3. Design. k in {1, 0.5, 0}, scenarios universal_permanent and free_market, mode full, pivot P1, seeds 8000-8099 (100 seeds, never
+   used), plus baseline once on the same seeds: 7 x 3 x 2 x 100 + 100 = 4,300 runs. Block A4 of analysis/run_a4.py writes
+   outputs/v041_a4/A4_runs.csv. Estimated time 2.2 h at 0.55 runs/s (an estimate, not a measurement).
+4. Outcomes and rules (analysis/a4_analysis.py, written and tested on synthetic data before any run, run once). E_G(s, k, level) =
+   G(s, k, level) - G(baseline), paired by seed, CI95 from the shared bootstrap index matrix (rng 20261016, 10,000 x 100).
+   (a) Ratio thresholds, per scenario: scanning R0 to R6 along theta = mq/(mq + ms), the first level interval in which E_G(k = 1)
+   crosses +SESOI (717.0, the confirmatory value) and the first in which E_G(k = 0) crosses -SESOI, by linear interpolation in theta,
+   reported as theta and as ratio = theta/(1 - theta), with a bootstrap CI over the resamples that have a crossing and the share of
+   resamples without one. If the point estimates have no crossing the report says so and states on which side every level lies.
+   (b) Mean score gain against baseline (paired CI) and mean g_k at step 960 (g_mean_960) per scenario, k and level.
+   (c) k* per level by interpolation on the grid {1, 0.5, 0}, scanning from k = 1 down, reported only if E_G changes sign in [0, 1]
+   ("none in [0,1]" otherwise); linearity in k is reported as E_G(0.5) - (E_G(1) + E_G(0))/2 with CI.
+   (d) Sanity check, fatal: R0 (mq = 0) removes the benefit-ability channel, so R0 at k = 1, 0.5 and 0 must be bitwise identical.
+   Checked twice by analysis/a4_checks.py: before the block on agent-state hashes (seeds 8000 and 8001, both scenarios, k = 1, 0.5, 0)
+   and after the block on every outcome column of the R0 rows. A mismatch stops the pipeline.
+5. Diagnostic D1 (exploratory): free_market, k = 1, R3, full, seeds 8100-8104 (5 runs, block D1). New option log_local_fraction records,
+   per step and agent, the tie-strength-weighted observed share of neighbours that the B1 peer term reads (model.py, observed_frac),
+   the same share without the P_VISIBLE draw, and the global share of agents with AI use in the same snapshot. Logging draws no random
+   numbers; a test checks that hashes with logging equal tests/ref_hashes_v041.json. Reported: variance of the local fraction across
+   agents (per period of 120 steps and overall) with an independent-neighbour reference p(1 - p)/degree, the per-agent correlation
+   over time between local and global fraction (mean and quantiles), and the mean absolute difference between local and global
+   fraction over time, also against P_VISIBLE x global. Agents without neighbours are excluded.
+6. Pipeline (run_pipeline_a4.sh, tmux): tests (including bitwise regression and the logging-inertness test), R0 pre-check, block A4,
+   R0 post-check, block D1, then the analysis script once, writing results_a4.md and outputs/v041_a4/results/*.csv. It stops on a failing
+   test, an R0 mismatch, any RuntimeError or Traceback, free disk below 20 GB, uncommitted tracked changes or another worker set.
+   After the first A4 run the script is not edited; a changed version is labelled exploratory and the original output is kept.
+7. Not claimed: no threshold, k* or ratio from A4 enters the confirmatory claims. Any statement in the paper that uses A4 labels it
+   post hoc exploratory and gives the levels and seeds above.
