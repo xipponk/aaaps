@@ -116,3 +116,199 @@ mean_legitimacy: ETA_SELF, P_VISIBLE and ETA are within each other's CI (free_ma
 - Initial legitimacy 0.10 is a literal in agents.py:113 and untested (section 4).
 - Aspiration test thresholds were relaxed after seeing the first diagnostics (design_v041.md section 6.2).
 - Budzyn et al. ADR figures are not used; the 21% remains a calibration target.
+
+## 8. Gate 6: confirmatory results (numbers copied from results_confirmatory.md, no narrative)
+
+Source: results_confirmatory.md (commit b687677), written by analysis/confirmatory_analysis.py, sha256 8908021ded52dcaa934a62b7814907598056607c242ae749c3e520f2f44dbe97 (equal in sha256sum, the file header and the six runner manifests). Seeds 7000-7099, 14,900 runs, pipeline 2026-10-12 to 2026-10-13, no errors. The statement at the top of this file that confirmatory seeds were unused applies to sections 1 to 7 only. Sections 1 to 7 are exploratory; this section 8 is split below. Tables are copied unchanged; csv files are in outputs/v041_conf/results/ (force-added in b687677).
+
+### 8.1 CONFIRMATORY (preregistered rules, A3)
+
+#### Family 1: co-primary tests on E_G(s, k = 0), Holm over two tests, alpha = 0.05
+G(baseline) = 14339.5 (mean over 100 seeds). SESOI for E_G = 5% of it = 717.0. Pivot P1.
+| scenario | E_G_k0 | relative | p_H0 | TOST_equiv | CI90 | Holm_reject_H0 |
+|---|---|---|---|---|---|---|
+| universal_permanent | -1042.1 [-1106.0, -979.1] | -0.0727 | 1.0000 | False | [-1096.2, -988.7] | False |
+| free_market | -82.6 [-150.6, -16.4] | -0.0058 | 1.0000 | True | [-138.9, -27.0] | False |
+H0: E_G(s, 0) <= +SESOI. Rejecting H0 means the gap widening exceeds the SESOI with the benefit made ability-independent.
+
+#### k*, linearity, states and narratives (pre-declared rules of sections 5 to 7)
+| scenario | k | E_G | relative | state | label |
+|---|---|---|---|---|---|
+| free_market | 1.0000 | 231.6 [157.6, 302.2] | 0.0161 | not present at k = 1 | confirmatory-rule |
+| free_market | 0.5000 | 89.2 [23.4, 151.9] | 0.0062 | n/a (E_G(s,1) not present) | confirmatory-rule |
+| free_market | 0.0000 | -82.6 [-150.6, -16.4] | -0.0058 | n/a (E_G(s,1) not present) | confirmatory-rule |
+| free_market | -0.5000 | -243.8 [-314.2, -177.6] | -0.0170 | n/a (E_G(s,1) not present) | confirmatory-rule |
+| free_market | -1.0000 | -437.6 [-512.9, -363.3] | -0.0305 | n/a (E_G(s,1) not present) | confirmatory-rule |
+| universal_permanent | 1.0000 | 224.5 [165.3, 282.6] | 0.0157 | not present at k = 1 | confirmatory-rule |
+| universal_permanent | 0.5000 | -383.3 [-444.7, -322.3] | -0.0267 | n/a (E_G(s,1) not present) | confirmatory-rule |
+| universal_permanent | 0.0000 | -1042.1 [-1106.0, -979.1] | -0.0727 | n/a (E_G(s,1) not present) | confirmatory-rule |
+| universal_permanent | -0.5000 | -1666.8 [-1735.0, -1601.1] | -0.1162 | n/a (E_G(s,1) not present) | confirmatory-rule |
+| universal_permanent | -1.0000 | -2303.2 [-2374.6, -2232.0] | -0.1606 | n/a (E_G(s,1) not present) | confirmatory-rule |
+
+| scenario | k_star | CI95_over_crossing_resamples | share_no_crossing | max_dev_from_line | linearity_flag | label |
+|---|---|---|---|---|---|---|
+| free_market | 0.240 | [0.053, 0.426] | 0.000 | 26.499 | True | confirmatory-rule |
+| mixed_policy | 0.174 | [-0.033, 0.369] | 0.000 | 27.925 | True | exploratory |
+| targeted_subsidy | 0.021 | [-0.123, 0.190] | 0.000 | 38.492 | False | exploratory |
+| universal_access | 0.449 | [0.384, 0.520] | 0.000 | 27.320 | False | exploratory |
+| universal_permanent | 0.815 | [0.770, 0.861] | 0.000 | 24.164 | True | confirmatory-rule |
+
+E_G(s, 1) is NOT present for both co-primary scenarios: per section 5 the claim 'AI widens the gap' is reported as absent in v0.4.1 and the narrative rules are not applied.
+
+#### Interaction clause (section 7 with the A3 decomposition): full - zero = social + individual
+social = full - self_only; individual = self_only - zero_interaction. driven: CI95 beyond +/-SESOI; null: CI90 inside (-SESOI, +SESOI); else indeterminate. Pivot P1. Full table for all five scenarios: interaction_decomposition.csv.
+| scenario | k | outcome | full_minus_zero | full_minus_zero_class | social | social_class | individual | individual_class | individual_share |
+|---|---|---|---|---|---|---|---|---|---|
+| free_market | 1.000 | mean_dependency | 0.1521 [0.1498, 0.1544] | driven | -0.0371 [-0.0377, -0.0366] | driven | 0.1892 [0.1867, 0.1918] | driven | 1.244 |
+| free_market | 1.000 | gini_score | 0.0033 [0.0029, 0.0037] | null | -0.0021 [-0.0024, -0.0018] | null | 0.0054 [0.0050, 0.0058] | indeterminate | nan |
+| free_market | 1.000 | mean_calibration_error | 0.1427 [0.1406, 0.1448] | driven | -0.0111 [-0.0114, -0.0109] | null | 0.1539 [0.1517, 0.1561] | driven | 1.078 |
+| free_market | 1.000 | relative_ability_decline | 0.0934 [0.0918, 0.0951] | driven | -0.0400 [-0.0407, -0.0393] | driven | 0.1334 [0.1312, 0.1356] | driven | 1.428 |
+| free_market | 1.000 | deadline_miss_count | 1.0809 [0.9767, 1.1870] | driven | -1.5704 [-1.6568, -1.4854] | driven | 2.6513 [2.5160, 2.7917] | driven | 2.453 |
+| free_market | 1.000 | G | 349.1800 [290.9388, 405.6861] | null | -202.0097 [-246.6750, -159.4514] | null | 551.1897 [496.6496, 605.9775] | null | nan |
+| free_market | 0.000 | mean_dependency | 0.1519 [0.1496, 0.1541] | driven | -0.0374 [-0.0379, -0.0368] | driven | 0.1892 [0.1867, 0.1918] | driven | 1.246 |
+| free_market | 0.000 | gini_score | 0.0022 [0.0017, 0.0026] | null | -0.0017 [-0.0020, -0.0014] | null | 0.0038 [0.0034, 0.0042] | null | nan |
+| free_market | 0.000 | mean_calibration_error | 0.1426 [0.1405, 0.1447] | driven | -0.0112 [-0.0115, -0.0109] | null | 0.1539 [0.1517, 0.1561] | driven | 1.079 |
+| free_market | 0.000 | relative_ability_decline | 0.0934 [0.0917, 0.0950] | driven | -0.0401 [-0.0408, -0.0394] | driven | 0.1334 [0.1312, 0.1356] | driven | 1.429 |
+| free_market | 0.000 | deadline_miss_count | 1.0800 [0.9864, 1.1772] | driven | -1.5712 [-1.6604, -1.4832] | driven | 2.6513 [2.5160, 2.7917] | driven | 2.455 |
+| free_market | 0.000 | G | 145.9757 [87.0814, 203.8765] | null | -159.0486 [-203.2787, -116.1266] | null | 305.0244 [248.1280, 361.9261] | null | nan |
+| universal_permanent | 1.000 | mean_dependency | 0.3397 [0.3383, 0.3412] | driven | -0.0401 [-0.0407, -0.0396] | driven | 0.3798 [0.3784, 0.3813] | driven | 1.118 |
+| universal_permanent | 1.000 | gini_score | -0.0025 [-0.0029, -0.0021] | null | -0.0004 [-0.0007, -0.0001] | null | -0.0021 [-0.0025, -0.0016] | null | nan |
+| universal_permanent | 1.000 | mean_calibration_error | 0.3722 [0.3707, 0.3736] | driven | -0.0176 [-0.0179, -0.0173] | null | 0.3897 [0.3883, 0.3912] | driven | 1.047 |
+| universal_permanent | 1.000 | relative_ability_decline | 0.1886 [0.1871, 0.1900] | driven | -0.0355 [-0.0361, -0.0350] | driven | 0.2241 [0.2223, 0.2259] | driven | 1.188 |
+| universal_permanent | 1.000 | deadline_miss_count | 2.5732 [2.4280, 2.7223] | driven | -1.4684 [-1.5516, -1.3860] | driven | 4.0416 [3.8659, 4.2172] | driven | 1.571 |
+| universal_permanent | 1.000 | G | 569.5429 [517.0641, 623.1410] | null | -175.9946 [-222.1867, -127.9544] | null | 745.5376 [685.6443, 805.0870] | indeterminate | nan |
+| universal_permanent | 0.000 | mean_dependency | 0.3390 [0.3376, 0.3404] | driven | -0.0408 [-0.0414, -0.0403] | driven | 0.3798 [0.3784, 0.3813] | driven | 1.120 |
+| universal_permanent | 0.000 | gini_score | -0.0079 [-0.0083, -0.0074] | driven | 0.0004 [0.0002, 0.0007] | null | -0.0083 [-0.0088, -0.0078] | driven | 1.054 |
+| universal_permanent | 0.000 | mean_calibration_error | 0.3716 [0.3701, 0.3731] | driven | -0.0181 [-0.0184, -0.0178] | null | 0.3897 [0.3883, 0.3912] | driven | 1.049 |
+| universal_permanent | 0.000 | relative_ability_decline | 0.1884 [0.1870, 0.1898] | driven | -0.0357 [-0.0363, -0.0352] | driven | 0.2241 [0.2223, 0.2259] | driven | 1.190 |
+| universal_permanent | 0.000 | deadline_miss_count | 2.6114 [2.4716, 2.7533] | driven | -1.4302 [-1.5193, -1.3418] | driven | 4.0416 [3.8659, 4.2172] | driven | 1.548 |
+| universal_permanent | 0.000 | G | -314.4999 [-371.8056, -256.6345] | null | -88.0599 [-132.8707, -41.0823] | null | -226.4399 [-287.2138, -165.3707] | null | nan |
+
+#### Family 2: H_self (free_market, k = 1, mean_dependency, alpha = 0.05)
+D_full = 0.2311, D_self = 0.2682, D_zero = 0.0790. D_full - D_zero = 0.1521 [0.1498, 0.1544] (beyond SESOI 0.02: True).
+S = (D_self - D_zero)/(D_full - D_zero) = 1.244, 95% CI [1.240, 1.248]. Verdict by the preregistered rule: **SUPPORTED**.
+Decomposition: individual = 0.1892 [0.1867, 0.1918], social = -0.0371 [-0.0377, -0.0366].
+
+#### Network sweep corroboration of H_self (free_market, k = 1, one-at-a-time, 17 points)
+| parameter | level | diff | lo95 | hi95 | tost_p | beyond_0p04 | holm_alpha | equivalent_holm |
+|---|---|---|---|---|---|---|---|---|
+| h_ability | 0.0000 | -0.0003 | -0.0006 | 0.0001 | 0.0000 | False | 0.0125 | True |
+| h_ability | 0.5000 | -0.0003 | -0.0006 | 0.0000 | 0.0000 | False | 0.0167 | True |
+| h_ability | 0.7500 | 0.0001 | -0.0002 | 0.0006 | 0.0000 | False | 0.0250 | True |
+| h_ability | 1.0000 | 0.0003 | -0.0001 | 0.0007 | 0.0000 | False | 0.0500 | True |
+| h_ses | 0.0000 | -0.0018 | -0.0022 | -0.0014 | 0.0000 | False | 0.0063 | True |
+| h_ses | 0.4000 | 0.0014 | 0.0010 | 0.0018 | 0.0000 | False | 0.0071 | True |
+| h_ses | 0.6000 | 0.0030 | 0.0027 | 0.0034 | 0.0000 | False | 0.0083 | True |
+| h_ses | 0.8000 | 0.0047 | 0.0043 | 0.0051 | 0.0000 | False | 0.0100 | True |
+| p_between | 0.0050 | 0.0000 | -0.0004 | 0.0005 | 0.0000 | False | 0.0042 | True |
+| p_between | 0.0300 | -0.0003 | -0.0007 | 0.0001 | 0.0000 | False | 0.0045 | True |
+| p_between | 0.0600 | -0.0005 | -0.0009 | -0.0001 | 0.0000 | False | 0.0050 | True |
+| p_between | 0.1200 | -0.0006 | -0.0010 | -0.0001 | 0.0000 | False | 0.0056 | True |
+| p_within | 0.1000 | 0.0000 | -0.0004 | 0.0004 | 0.0000 | False | 0.0031 | True |
+| p_within | 0.1400 | -0.0003 | -0.0007 | 0.0001 | 0.0000 | False | 0.0033 | True |
+| p_within | 0.2500 | -0.0002 | -0.0006 | 0.0001 | 0.0000 | False | 0.0036 | True |
+| p_within | 0.3500 | -0.0005 | -0.0008 | -0.0001 | 0.0000 | False | 0.0038 | True |
+Rule: supports if all 16 contrasts are equivalent to 0 at SESOI 0.02 (TOST, Holm over 16); contradicts if any full contrast has 95% CI beyond +/-0.04. Result: **SUPPORTS H_self** (all equivalent: True; any beyond 0.04: False).
+
+no_norms check (dependency contrasts against the no_norms default point; expected flat):
+| parameter | level | diff | lo95 | hi95 |
+|---|---|---|---|---|
+| p_within | 0.1000 | 0.0002 | 0.0001 | 0.0003 |
+| p_within | 0.1400 | 0.0002 | 0.0001 | 0.0003 |
+| p_within | 0.2500 | -0.0000 | -0.0001 | 0.0001 |
+| p_within | 0.3500 | -0.0001 | -0.0002 | -0.0000 |
+| p_between | 0.0050 | 0.0001 | 0.0000 | 0.0002 |
+| p_between | 0.0300 | -0.0001 | -0.0001 | 0.0000 |
+| p_between | 0.0600 | -0.0001 | -0.0002 | -0.0000 |
+| p_between | 0.1200 | -0.0002 | -0.0003 | -0.0001 |
+| h_ses | 0.0000 | 0.0001 | -0.0000 | 0.0001 |
+| h_ses | 0.4000 | 0.0000 | -0.0001 | 0.0001 |
+| h_ses | 0.6000 | -0.0001 | -0.0001 | 0.0000 |
+| h_ses | 0.8000 | -0.0001 | -0.0001 | 0.0000 |
+| h_ability | 0.0000 | 0.0000 | -0.0000 | 0.0001 |
+| h_ability | 0.5000 | 0.0001 | 0.0000 | 0.0002 |
+| h_ability | 0.7500 | 0.0002 | 0.0001 | 0.0003 |
+| h_ability | 1.0000 | 0.0002 | 0.0001 | 0.0003 |
+
+### 8.2 EXPLORATORY (no multiplicity control)
+
+#### P2 (level-matched pivot) vs P1, E_G, mode full
+| scenario | k | E_G_P1 | E_G_P2 | mean_pivot_P2 | mean_pivot_P1 |
+|---|---|---|---|---|---|
+| universal_permanent | 0.0000 | -1042.1 [-1106.0, -979.1] | -1134.0 [-1193.5, -1075.6] | 0.4485 | 0.5007 |
+| universal_permanent | -1.0000 | -2303.2 [-2374.6, -2232.0] | -2467.8 [-2528.4, -2408.5] | 0.4485 | 0.5007 |
+| free_market | 0.0000 | -82.6 [-150.6, -16.4] | -87.3 [-155.1, -23.0] | 0.4744 | 0.5007 |
+| free_market | -1.0000 | -437.6 [-512.9, -363.3] | -450.0 [-525.0, -375.9] | 0.4744 | 0.5007 |
+
+#### Channel ablations at k = 1 (E_G vs baseline, dependency, decline)
+| ablation | scenario | mode | E_G | dependency | decline | score |
+|---|---|---|---|---|---|---|
+| quality_only | universal_permanent | full | 4474.4 [4395.9, 4555.5] | 0.5423 | 0.2520 | 31830.3878 |
+| quality_only | universal_permanent | zero_interaction | 777.7 [738.7, 816.1] | 0.1590 | 0.0209 | 32112.1799 |
+| quality_only | free_market | full | 1642.7 [1579.1, 1707.1] | 0.2428 | 0.1170 | 31260.5208 |
+| quality_only | free_market | zero_interaction | 286.6 [250.0, 322.5] | 0.0802 | 0.0120 | 31692.4157 |
+| speed_only | universal_permanent | full | -1924.6 [-1985.5, -1863.7] | 0.4958 | 0.2075 | 32496.4023 |
+| speed_only | universal_permanent | zero_interaction | -962.0 [-1010.8, -914.2] | 0.1554 | 0.0196 | 32108.1288 |
+| speed_only | free_market | full | -318.0 [-371.3, -265.2] | 0.2296 | 0.1034 | 31602.6451 |
+| speed_only | free_market | zero_interaction | -299.5 [-340.0, -259.1] | 0.0790 | 0.0115 | 31706.0389 |
+
+#### C1 calibration complementarity (E_G vs baseline; mean g_c at step 960)
+| scenario | mode | E_G | g_c_960 | score |
+|---|---|---|---|---|
+| free_market | full | -242.3 [-300.9, -185.1] | 0.3127 | 31852.4115 |
+| free_market | zero_interaction | -255.3 [-297.2, -213.8] | 0.3841 | 31822.6392 |
+| mixed_policy | full | -131.6 [-185.5, -78.8] | 0.3307 | 31870.0533 |
+| mixed_policy | zero_interaction | -131.2 [-181.6, -82.0] | 0.4038 | 31750.1158 |
+| targeted_subsidy | full | -282.2 [-347.8, -216.4] | 0.1808 | 31874.1234 |
+| targeted_subsidy | zero_interaction | -307.9 [-348.7, -266.5] | 0.3103 | 31932.3779 |
+| universal_access | full | -700.9 [-761.5, -642.3] | 0.0826 | 32668.8486 |
+| universal_access | zero_interaction | -516.8 [-564.3, -470.0] | 0.2584 | 32220.5997 |
+| universal_permanent | full | -1606.6 [-1666.4, -1549.8] | 0.0716 | 33523.7789 |
+| universal_permanent | zero_interaction | -805.1 [-854.4, -756.3] | 0.2586 | 32536.0922 |
+E_G under C1 is to be read within a scenario only (A1/A2).
+
+#### Sensitivity to the initial legitimacy L0 (free_market, k = 1)
+| L0 | D_full | D_self | D_zero | S | S_lo95 | S_hi95 |
+|---|---|---|---|---|---|---|
+| 0.0500 | 0.2310 | 0.2680 | 0.0529 | 1.2077 | 1.2048 | 1.2106 |
+| 0.1000 | 0.2311 | 0.2682 | 0.0790 | 1.2442 | 1.2405 | 1.2480 |
+| 0.2000 | 0.2310 | 0.2681 | 0.1172 | 1.3256 | 1.3203 | 1.3312 |
+| 0.3000 | 0.2311 | 0.2681 | 0.1466 | 1.4375 | 1.4291 | 1.4461 |
+
+#### Diagnostics
+| scenario | k | g_s1 | g_s480 | g_s960 | clip_count | decline |
+|---|---|---|---|---|---|---|
+| free_market | 1.0000 | 0.5007 | 0.4732 | 0.4482 | 0.0000 | 0.1049 |
+| free_market | 0.5000 | 0.5007 | 0.4870 | 0.4744 | 0.0000 | 0.1049 |
+| free_market | 0.0000 | 0.5007 | 0.5007 | 0.5007 | 0.0000 | 0.1049 |
+| free_market | -0.5000 | 0.5007 | 0.5144 | 0.5269 | 0.0000 | 0.1048 |
+| free_market | -1.0000 | 0.5007 | 0.5281 | 0.5533 | 14.7800 | 0.1050 |
+| mixed_policy | 1.0000 | 0.5007 | 0.4867 | 0.4732 | 0.0000 | 0.0550 |
+| mixed_policy | 0.5000 | 0.5007 | 0.4938 | 0.4869 | 0.0000 | 0.0550 |
+| mixed_policy | 0.0000 | 0.5007 | 0.5007 | 0.5007 | 0.0000 | 0.0550 |
+| mixed_policy | -0.5000 | 0.5007 | 0.5077 | 0.5145 | 0.0000 | 0.0550 |
+| mixed_policy | -1.0000 | 0.5007 | 0.5146 | 0.5282 | 14.9500 | 0.0549 |
+| targeted_subsidy | 1.0000 | 0.5007 | 0.4537 | 0.4111 | 0.0000 | 0.1789 |
+| targeted_subsidy | 0.5000 | 0.5007 | 0.4772 | 0.4559 | 0.0000 | 0.1789 |
+| targeted_subsidy | 0.0000 | 0.5007 | 0.5007 | 0.5007 | 0.0000 | 0.1790 |
+| targeted_subsidy | -0.5000 | 0.5007 | 0.5243 | 0.5455 | 0.0000 | 0.1789 |
+| targeted_subsidy | -1.0000 | 0.5007 | 0.5479 | 0.5903 | 1.5000 | 0.1790 |
+| universal_access | 1.0000 | 0.5007 | 0.4463 | 0.4134 | 0.0000 | 0.1744 |
+| universal_access | 0.5000 | 0.5007 | 0.4735 | 0.4571 | 0.0000 | 0.1743 |
+| universal_access | 0.0000 | 0.5007 | 0.5007 | 0.5007 | 0.0000 | 0.1745 |
+| universal_access | -0.5000 | 0.5007 | 0.5280 | 0.5444 | 0.0000 | 0.1745 |
+| universal_access | -1.0000 | 0.5007 | 0.5552 | 0.5880 | 1.3000 | 0.1744 |
+| universal_permanent | 1.0000 | 0.5007 | 0.4463 | 0.3965 | 0.0000 | 0.2082 |
+| universal_permanent | 0.5000 | 0.5007 | 0.4735 | 0.4486 | 0.0000 | 0.2082 |
+| universal_permanent | 0.0000 | 0.5007 | 0.5007 | 0.5007 | 0.0000 | 0.2080 |
+| universal_permanent | -0.5000 | 0.5007 | 0.5280 | 0.5528 | 0.0000 | 0.2083 |
+| universal_permanent | -1.0000 | 0.5007 | 0.5552 | 0.6049 | 1.3000 | 0.2081 |
+
+Realised network over all runs with a network (min / mean / max):
+| index | net_attempts | net_k_bar | net_within_section_share |
+|---|---|---|---|
+| min | 1.000 | 6.300 | 0.197 |
+| mean | 1.032 | 10.843 | 0.562 |
+| max | 7.000 | 32.383 | 0.790 |
+
+Not copied here (in results_confirmatory.md): levels by scenario and k, terciles, density-controlled sweep, full network ranges, no_norms check.
