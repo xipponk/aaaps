@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.patches import Patch
+from matplotlib.ticker import MaxNLocator
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONF = os.path.join(ROOT, "outputs", "v041_conf")
@@ -73,7 +74,7 @@ def sel(df, **c):
 
 
 def tag(ax, text):
-    ax.set_title(text, loc="left", fontsize=7, style="italic", color="#444444")
+    ax.set_title(text, loc="left", fontsize=8, fontweight="bold")
 
 
 # ---------------------------------------------------------------- F0
@@ -83,7 +84,11 @@ def f0():
     outs = [("mean_score", "Score gain\n(points)"), ("gini_score", "Change in Gini\nof score"), ("mean_dependency", "Dependency"),
             ("relative_ability_decline", "Relative ability\ndecline"), ("deadline_miss_count", "Deadline misses\n(count)")]
     fig, axs = plt.subplots(1, 5, figsize=(7.4, 2.5), sharey=True)
-    for ax, (m, lab) in zip(axs, outs):
+    for n, (ax, (m, lab)) in enumerate(zip(axs, outs)):
+        tag(ax, f"({'abcde'[n]})")
+        ax.xaxis.set_major_locator(MaxNLocator(3))
+        if m == "gini_score":
+            ax.set_xticks([-0.01, 0.0, 0.01], ["-0.01", "0.00", "0.01"])
         for i, sc in enumerate(SC5):
             d = p[p.scenario == sc].sort_values("seed")[m].to_numpy(float) - base[m].to_numpy(float)
             mu, lo, hi = ci(d)
@@ -93,8 +98,6 @@ def f0():
         ax.set_yticks(range(5), [LAB[s] for s in SC5])
         ax.invert_yaxis()
         ax.tick_params(axis="x", labelsize=6.5)
-    fig.text(0.5, -0.04, "Difference from the no-AI baseline, paired by seed, 95% bootstrap CI. Production run v0.4.1, seeds 0-99, k = 1 (exploratory, not the confirmatory seeds).",
-             ha="center", fontsize=6.5, color="#444444")
     fig.tight_layout()
     save(fig, "F0_scenario_overview")
 
@@ -104,7 +107,8 @@ def f1():
     t = pd.read_csv(os.path.join(CONF, "results", "E_G_states.csv"))
     sesoi = float(pd.read_csv(os.path.join(CONF, "results", "interaction_decomposition.csv")).query("outcome == 'G'").sesoi.iloc[0])
     fig, axs = plt.subplots(1, 2, figsize=(7.2, 2.9), gridspec_kw=dict(width_ratios=[1, 1]))
-    for ax, scs, sub in zip(axs, (COPRIMARY, SC5[2:]), ("Co-primary scenarios (confirmatory family)", "Other scenarios (exploratory)")):
+    ks_t = pd.read_csv(os.path.join(CONF, "results", "k_star.csv")).set_index("scenario")
+    for ax, scs, sub in zip(axs, (COPRIMARY, SC5[2:]), ("(a)", "(b)")):
         for sc in scs:
             r = t[t.scenario == sc].copy()
             v = np.array([parse(s) for s in r.E_G])
@@ -114,11 +118,15 @@ def f1():
                         label=LAB[sc], ls="-" if sc in COPRIMARY else "--")
         ax.axhspan(-sesoi, sesoi, color="#bbbbbb", alpha=0.25, lw=0)
         ax.axhline(0, color="#777777", lw=0.7)
+        if ax is axs[0]:
+            for sc in COPRIMARY:
+                ks, (klo, khi) = float(ks_t.loc[sc, "k_star"]), (float(x) for x in re.findall(r"-?\d+\.\d+", ks_t.loc[sc, "CI95_over_crossing_resamples"]))
+                ax.errorbar(ks, 0, xerr=[[ks - klo], [khi - ks]], fmt="D", color=COL[sc], mfc="white", mec=COL[sc], ms=6, capsize=3, lw=1.6, zorder=6,
+                            label=f"k* ({LAB[sc]}), 95% CI")
         ax.set_xlabel("Benefit-ability slope k")
-        ax.legend(frameon=False, loc="lower right")
+        ax.legend(frameon=False, loc="lower right", fontsize=6.5)
         tag(ax, sub)
     axs[0].set_ylabel("E_G = G(AI) - G(baseline) (score points)")
-    fig.text(0.5, -0.03, f"k = 1 original benefit, k = 0 ability independent. Grey band: equivalence margin +/- SESOI = {sesoi:.1f} (5% of G(baseline)). Seeds 7000-7099, 95% bootstrap CI.", ha="center", fontsize=6.5, color="#444444")
     fig.tight_layout()
     save(fig, "F1_EG_by_k")
 
@@ -127,11 +135,12 @@ def f1():
 def f2():
     lv = pd.read_csv(os.path.join(A4, "results", "a4_levels.csv"))
     th = pd.read_csv(os.path.join(A4, "results", "a4_ratio_thresholds.csv"))
+    XL = ["R0\nno quality", "R1\n0.25", "R2\n0.5", "R3\n1", "R4\n2", "R5\n4", "R6\nno speed"]
     pos = {"R0": -3.4, "R1": -2, "R2": -1, "R3": 0, "R4": 1, "R5": 2, "R6": 3.4}
     sty = {1.0: ("-", "o", -0.06), 0.5: ("--", "s", 0.0), 0.0: (":", "^", 0.06)}
     sesoi = float(pd.read_csv(os.path.join(CONF, "results", "interaction_decomposition.csv")).query("outcome == 'G'").sesoi.iloc[0])
-    rows = [("E_G", "E_G (score points)"), ("score_gain", "Score gain (points)"), ("g_mean_960", "g_mean_960")]
-    fig, axs = plt.subplots(3, 2, figsize=(7.2, 7.0), sharex=True)
+    rows = [("E_G", "E_G (score points)"), ("score_gain", "Score gain (points)")]
+    fig, axs = plt.subplots(2, 2, figsize=(7.2, 5.0), sharex=True)
     for j, sc in enumerate(COPRIMARY):
         for i, (m, ylab) in enumerate(rows):
             ax = axs[i, j]
@@ -162,25 +171,41 @@ def f2():
                                 mfc="white", ms=5, capsize=2, zorder=5, label="threshold crossing" if kk == 1.0 else None)
             if j == 0:
                 ax.set_ylabel(ylab)
-            if i == 0:
-                tag(ax, LAB[sc])
-        axs[2, j].set_xticks([pos[x] for x in pos], ["R0\nno quality", "R1\n0.25", "R2\n0.5", "R3\n1", "R4\n2", "R5\n4", "R6\nno speed"])
-        axs[2, j].set_xlabel("Channel ratio mq/ms (log scale; ends are separate points)")
-    axs[0, 0].legend(frameon=False, loc="upper left", bbox_to_anchor=(0.0, 0.9))
-    fig.text(0.5, -0.005, "Dash-dot line: default ratio (R3). Dashed horizontal lines: +/- SESOI = 717.0. Open diamonds: threshold crossing with 95% CI. Seeds 8000-8099 (post hoc, exploratory).",
-             ha="center", fontsize=6.5, color="#444444")
+            tag(ax, f"({'abcd'[i * 2 + j]}) {LAB[sc]}")
+        axs[1, j].set_xticks([pos[x] for x in pos], XL)
+        axs[1, j].set_xlabel("Channel ratio mq/ms (log scale; ends are separate points)")
+    axs[0, 0].legend(frameon=False, loc="upper left", bbox_to_anchor=(0.0, 0.88))
     fig.tight_layout()
     save(fig, "F2_ratio_sweep")
+    fig, axs = plt.subplots(1, 2, figsize=(7.2, 2.7), sharex=True)
+    for j, sc in enumerate(COPRIMARY):
+        ax = axs[j]
+        for k, (ls, mk, off) in sty.items():
+            s = lv[(lv.scenario == sc) & np.isclose(lv.k, k)].copy()
+            s["x"] = s.level.map(pos)
+            s = s.sort_values("x")
+            ax.plot(s.x + off, s["g_mean_960"], color=COL[sc], ls=ls, marker=mk, ms=3.5, label=f"k = {k:g}")
+        ax.axvline(0, color="#777777", lw=0.8, ls="-.")
+        for xv in (-2.7, 2.7):
+            ax.axvline(xv, color="#bbbbbb", lw=0.6)
+        ax.set_xticks([pos[x] for x in pos], XL)
+        ax.set_xlabel("Channel ratio mq/ms (log scale; ends are separate points)")
+        ax.set_ylabel("g_mean_960" if j == 0 else "")
+        tag(ax, f"({'ab'[j]}) {LAB[sc]}")
+    axs[0].legend(frameon=False, loc="best")
+    fig.tight_layout()
+    save(fig, "F2_appendix_pivot")
 
 
 # ---------------------------------------------------------------- F3
 def f3():
     d = pd.read_csv(os.path.join(CONF, "results", "interaction_decomposition.csv"))
     d = d[np.isclose(d.k, 1.0)]
-    outs = [("mean_dependency", "Dependency"), ("mean_calibration_error", "Calibration error"), ("relative_ability_decline", "Relative ability decline"),
-            ("deadline_miss_count", "Deadline misses (count)"), ("gini_score", "Gini of score"), ("G", "G (top minus bottom tercile score)")]
+    outs = [("mean_dependency", "\u0394 dependency"), ("mean_calibration_error", "\u0394 calibration error"), ("relative_ability_decline", "\u0394 relative ability decline"),
+            ("deadline_miss_count", "\u0394 deadline misses"), ("gini_score", "\u0394 Gini"), ("G", "\u0394 G")]
     fig, axs = plt.subplots(2, 3, figsize=(7.2, 4.6))
-    for ax, (o, lab) in zip(axs.ravel(), outs):
+    for n, (ax, (o, lab)) in enumerate(zip(axs.ravel(), outs)):
+        tag(ax, f"({'abcdef'[n]})")
         r = d[d.outcome == o]
         sesoi = float(r.sesoi.iloc[0])
         for i, sc in enumerate(COPRIMARY):
@@ -199,8 +224,6 @@ def f3():
     fig.legend(handles=[Patch(fc="#777777", ec="#777777", label="individual"), Patch(fc="#dddddd", ec="#777777", hatch="////", label="social"),
                         plt.Line2D([], [], marker="D", color="black", ls="", ms=3.5, label="full minus zero interaction")],
                frameon=False, loc="upper center", ncol=3, fontsize=7, bbox_to_anchor=(0.5, 1.04))
-    fig.text(0.5, -0.01, "k = 1. individual = self-only minus zero-interaction; social = full minus self-only. Grey band: +/- SESOI of the outcome. Seeds 7000-7099, 95% bootstrap CI.",
-             ha="center", fontsize=6.5, color="#444444")
     fig.tight_layout()
     save(fig, "F3_interaction_decomposition")
 
@@ -239,8 +262,6 @@ def f4():
     ax.set_xticks([0.05, 0.1, 0.2, 0.3])
     ax.set_xlabel("Initial legitimacy L0")
     ax.set_ylabel("S = (D_self - D_zero)/(D_full - D_zero)")
-    tag(ax, "free market, k = 1, dependency")
-    fig.text(0.5, -0.04, "Seeds 7000-7099, 95% bootstrap CI.", ha="center", fontsize=6.5, color="#444444")
     fig.tight_layout()
     save(fig, "F4_H_self_L0")
     return t
@@ -272,10 +293,10 @@ def f56():
     ax.set_ylim(-0.03, 0.03)
     ax.set_ylabel("Change in dependency")
     ax.set_xlabel("")
-    tag(ax, "(a) one-at-a-time sweep, free market, k = 1; x: parameter level")
+    tag(ax, "(a)")
     ax = axs[1]
     labs = sorted(N[N.net_label.str.startswith("dens=")].net_label.unique())
-    for dis, ls, lab in (("none", "-", "full"), ("norms", "--", "no peer norms")):
+    for dis, ls, lab in (("none", "-", "full"), ("norms", "--", "no norms (peer and self)")):
         pts = []
         for lb in labs:
             sub = sel(N, net_label=lb, disabled=dis)
@@ -287,9 +308,7 @@ def f56():
     ax.set_xlabel("Within-section tie share")
     ax.set_ylabel("Dependency")
     ax.legend(frameon=False, loc="center right")
-    tag(ax, "(b) density-controlled (expected degree 12)")
-    fig.text(0.5, -0.03, "(a) Grey band: +/- 0.02 (SESOI for dependency). The default level of each parameter is the reference (not drawn). Seeds 7000-7099, 95% bootstrap CI.",
-             ha="center", fontsize=6.5, color="#444444")
+    tag(ax, "(b)")
     fig.tight_layout()
     save(fig, "F5_F6_network_and_density")
 
@@ -299,19 +318,26 @@ NETPAR = {"HOMOPHILY_SES", "HOMOPHILY_ABILITY", "SBM_P_WITHIN", "SBM_P_BETWEEN"}
 
 
 def f7():
-    c = pd.read_csv(os.path.join(MAIN, "morris_v04_composite_v2.csv"), index_col=0).sort_values("composite_max")
+    c = pd.read_csv(os.path.join(MAIN, "morris_v04_composite_v2.csv"), index_col=0).sort_values(["composite_max", "rank"], ascending=[False, True])
     keep = set(pd.read_csv(os.path.join(MAIN, "morris_v04_retained12.csv")).parameter)
-    fig, ax = plt.subplots(figsize=(4.4, 4.6))
-    for i, (p, r) in enumerate(c.iterrows()):
-        ax.barh(i, r.composite_max, color=COL["free_market"] if p in keep else "#bbbbbb", hatch="////" if p in NETPAR else None,
-                edgecolor="white" if p not in NETPAR else "#444444", lw=0.5)
-    ax.axvline(0.3, color="#555555", ls="--", lw=0.8)
-    ax.set_yticks(range(len(c)), [("* " if p in NETPAR else "") + p for p in c.index], fontsize=6.5)
-    ax.set_xlabel("Composite (max over 8 metrics of normalised mu*)")
-    ax.legend(handles=[Patch(fc=COL["free_market"], label="retained for Sobol (top 12)"), Patch(fc="#bbbbbb", label="not retained"),
-                       Patch(fc="white", ec="#444444", hatch="////", label="* network parameter"),
-                       plt.Line2D([], [], color="#555555", ls="--", label="0.3")], frameon=False, loc="lower right")
-    fig.text(0.5, -0.02, "Morris screening, free market, 23 parameters, r = 20, seeds 2000-2002, v0.4.1 (git c1021d9).", ha="center", fontsize=6.5, color="#444444")
+    cols = [("mean_score", "mean score"), ("std_score", "std score"), ("gini_score", "Gini"), ("mean_dependency", "dependency"),
+            ("mean_calibration_error", "calibration error"), ("relative_ability_decline", "ability decline"),
+            ("deadline_miss_count", "deadline misses"), ("mean_legitimacy", "legitimacy")]
+    M = c[[f"{m}_norm" for m, _ in cols]].to_numpy(float)
+    fig, ax = plt.subplots(figsize=(5.6, 6.0))
+    im = ax.imshow(M, cmap="viridis", vmin=0, vmax=1, aspect="auto")
+    for i in range(M.shape[0]):
+        for j in range(M.shape[1]):
+            ax.text(j, i, f"{M[i, j]:.2f}", ha="center", va="center", fontsize=5.5, color="white" if M[i, j] < 0.55 else "black")
+    ax.set_xticks(range(len(cols)), [l for _, l in cols], rotation=45, ha="right")
+    ax.set_yticks(range(len(c)), [p + (" *" if p in NETPAR else "") + ("  (top 12)" if p in keep else "") for p in c.index], fontsize=6.5)
+    for lab, p in zip(ax.get_yticklabels(), c.index):
+        if p in NETPAR:
+            lab.set_fontweight("bold")
+    assert sum(p in keep for p in c.index[:12]) == 12, "top 12 by composite is not the retained set"
+    ax.axhline(11.5, color="white", lw=2.0)
+    ax.axhline(11.5, color="black", lw=0.8, ls="--")
+    fig.colorbar(im, ax=ax, shrink=0.7, label="normalised mu*")
     fig.tight_layout()
     save(fig, "F7_morris")
 
@@ -332,11 +358,10 @@ def f8():
             ax.set_xlim(0, 1)
             if i == 1:
                 ax.set_xlabel("Index")
-            tag(ax, f"{lab}" if i == 0 else "")
+            tag(ax, f"({'abcdefgh'[i * 4 + j]}) {lab}")
         axs[i, 0].set_ylabel(LAB[sc] + " (scenario)")
         axs[i, 3].legend(handles=[Patch(fc=COL[sc], label="ST (95% CI)"), Patch(fc=COL[sc], alpha=0.35, hatch="////", ec=COL[sc], label="S1 (clipped at 0)")],
                          frameon=False, loc="lower right", fontsize=6)
-    fig.text(0.5, -0.01, "Sobol, N = 512, 12 parameters, one seed (3000) per design point, v0.4.1 (git c1021d9).", ha="center", fontsize=6.5, color="#444444")
     fig.tight_layout()
     save(fig, "F8_sobol_main")
     # appendix: total-order heatmap for the remaining metrics; borrowing and degenerate metrics in grey
@@ -366,7 +391,7 @@ def f9():
     base = sel(K, block="K", scenario="baseline", mode="full", k=1.0).G.to_numpy(float)
     fig, axs = plt.subplots(1, 3, figsize=(7.4, 2.9), gridspec_kw=dict(width_ratios=[1, 1, 1.05]))
     sesoi = 0.05 * base.mean()
-    for ax, mode, sub in zip(axs[:2], ("full", "zero_interaction"), ("(a) full model", "(b) zero interaction")):
+    for ax, mode, sub in zip(axs[:2], ("full", "zero_interaction"), ("(a)", "(b)")):
         for i, sc in enumerate(COPRIMARY):
             vals = [("both channels", sel(K, block="K", scenario=sc, mode=mode, k=1.0).G.to_numpy(float) - base, None, 1.0),
                     ("quality only", sel(A, scenario=sc, ablation="quality_only", mode=mode, k=1.0).G.to_numpy(float) - base, "////", 0.45),
@@ -391,9 +416,7 @@ def f9():
     ax.set_xlabel("Step")
     ax.set_ylabel("Variance / reference (40-step mean)")
     ax.legend(frameon=False, loc="upper right", fontsize=6)
-    tag(ax, "(c) D1 diagnostic")
-    fig.text(0.5, -0.03, "(a, b) k = 1, seeds 7000-7099, grey band +/- SESOI = 717.0, 95% bootstrap CI. (c) free market, k = 1, R3, seeds 8100-8104 (mean over 5 seeds); reference = independent Bernoulli neighbours with exact tie-strength weights (exploratory).",
-             ha="center", fontsize=6, color="#444444", wrap=True)
+    tag(ax, "(c)")
     fig.tight_layout()
     save(fig, "F9_ablation_and_D1")
     # panels a and b of F9 are F9a, panel c is F9b
@@ -404,7 +427,8 @@ def fa():
     K = runs("K")
     fig, axs = plt.subplots(1, 2, figsize=(7.2, 2.8))
     ks = [-1.0, -0.5, 0.0, 0.5, 1.0]
-    for ax, (m, lab) in zip(axs, (("relative_ability_decline", "Relative ability decline"), ("mean_dependency", "Dependency"))):
+    for n, (ax, (m, lab)) in enumerate(zip(axs, (("relative_ability_decline", "Relative ability decline"), ("mean_dependency", "Dependency")))):
+        tag(ax, f"({'ab'[n]})")
         for n, sc in enumerate(SC5):
             pts = [ci(sel(K, block="K", scenario=sc, mode="full", k=k)[m].to_numpy(float)) for k in ks]
             a = np.array(pts)
@@ -415,7 +439,6 @@ def fa():
         ax.set_ylabel(lab)
         ax.set_ylim(bottom=0)
     axs[1].legend(frameon=False, loc="lower right", fontsize=6)
-    fig.text(0.5, -0.03, "Mode full. Seeds 7000-7099, 95% bootstrap CI. Solid: co-primary scenarios; dashed: exploratory.", ha="center", fontsize=6.5, color="#444444")
     fig.tight_layout()
     save(fig, "FA_k_invariance")
 
